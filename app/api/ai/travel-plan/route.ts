@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     if (prefs.time_preference) parts.push(`Times: ${prefs.time_preference}`);
     if (prefs.loyalty_programs) parts.push(`Loyalty: ${prefs.loyalty_programs}`);
     if (prefs.other_notes) parts.push(`Notes: ${prefs.other_notes}`);
-    if (parts.length > 0) prefsContext = `\nPreferences: ${parts.join(". ")}`;
+    if (parts.length > 0) prefsContext = parts.map(p => `- ${p}`).join("\n");
   }
 
   // Fetch calendar events for context
@@ -102,12 +102,16 @@ Rules:
 - Search for REAL current flights with actual flight codes (e.g. DL1234, UA567, AA890) and dates
 - URLs MUST be deep links to the booking/search page for that specific route and date on the airline or hotel site — NOT the homepage. For example: delta.com/flight-search/search?... with origin, destination, date params, or marriott.com/search/... with location and date params. Search the airline/hotel website to find the correct URL structure.
 - Mark the best option as "recommended":true based on user preferences
-- The first flight in each list is the recommended one. Include 2-3 alternatives.
+- NEVER recommend flights that violate user preferences (e.g. if they say "no red-eyes", do not include ANY red-eye flights — not even as alternatives)
+- The first flight in each list is the recommended one. Include 2-3 alternatives that ALSO respect preferences.
 - flights_out_note: one sentence on distance/drive time from arrival airport to meeting location, including traffic considerations
 - flights_back_note: one sentence on when to leave the meeting to make the flight, accounting for traffic
 - Account for travel time, traffic, check-in — make sure they arrive on time
 - Keep it minimal — no fluff
-- Always return the JSON object, even if you have to make assumptions${prefsContext}
+- Always return the JSON object, even if you have to make assumptions${prefsContext ? `
+
+CRITICAL — User travel preferences (these are HARD CONSTRAINTS, not suggestions. Violating any of these is unacceptable):
+${prefsContext}` : ""}
 
 Today: ${new Date().toISOString().split("T")[0]}`;
 
