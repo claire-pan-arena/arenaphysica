@@ -82,18 +82,18 @@ Return ONLY a valid JSON object — no other text, no markdown, no explanation. 
   "home_base": "Best guess of user's home city/airport based on preferences and calendar patterns",
   "trips": [
     {
-      "summary": "NYC → LA, Mar 17-19",
+      "summary": "NYC → LA, March 17-19, 2026",
       "purpose": "Meeting with Anduril team",
-      "dates": "Mar 17-19",
+      "dates": "Monday, March 17 – Wednesday, March 19, 2026",
       "meetings": [
-        {"title": "Anduril Engineering Sync", "date": "Mar 18", "time": "2:00pm", "location": "Irvine, CA"}
+        {"title": "Anduril Engineering Sync", "date": "Tuesday, March 18, 2026", "time": "2:00pm", "location": "Irvine, CA"}
       ],
       "flights_out": [
-        {"airline":"Delta","flight_code":"DL1234","date":"Mar 17","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
+        {"airline":"Delta","flight_code":"DL1234","date":"Monday, March 17, 2026","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
       ],
       "flights_out_note": "LAX is 45 min from Irvine meeting location via I-405.",
       "flights_back": [
-        {"airline":"Delta","flight_code":"DL5678","date":"Mar 19","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":true}
+        {"airline":"Delta","flight_code":"DL5678","date":"Wednesday, March 19, 2026","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":true}
       ],
       "flights_back_note": "Meeting ends at 3pm. Leave by 4pm for 6pm flight.",
       "hotels": [

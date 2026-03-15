@@ -293,11 +293,9 @@ export default function TravelPlannerPage() {
                 <div>
                   <h3 className="text-lg font-medium text-white">Upcoming Travel</h3>
                   <p className="text-[11px] text-white/25 mt-0.5">Based on your calendar · Home: {calendarItinerary.home_base}</p>
+                  <span className="text-[12px] text-[#a3b18a]/70">{calendarItinerary.total_travel_budget} estimated</span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-lg font-medium text-emerald-300">{calendarItinerary.total_travel_budget}</span>
-                  <button onClick={() => setCalendarItinerary(null)} className="text-[9px] tracking-widest text-white/20 uppercase hover:text-white/40 transition-colors">Clear</button>
-                </div>
+                <button onClick={() => setCalendarItinerary(null)} className="text-[9px] tracking-widest text-white/20 uppercase hover:text-white/40 transition-colors">Clear</button>
               </div>
 
               {calendarItinerary.trips.length === 0 && (
@@ -321,12 +319,11 @@ export default function TravelPlannerPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-[13px] font-medium text-white">{trip.summary}</span>
-                            <span className="text-[10px] text-white/20">{trip.dates}</span>
                           </div>
                           <p className="text-[11px] text-white/30 mt-0.5 truncate">{trip.purpose}</p>
+                          <span className="text-[11px] text-[#a3b18a]/60">{trip.total_estimate} estimated</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0 ml-4">
-                          <span className="text-[13px] font-medium text-emerald-300">{trip.total_estimate}</span>
                           <svg className={`h-3 w-3 text-white/15 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                           </svg>
@@ -353,7 +350,7 @@ export default function TravelPlannerPage() {
                           {/* Outbound */}
                           {outFlight && (
                             <div>
-                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Depart{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Departing Flight{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
                               <BookingRow
                                 left={<>
                                   <span className="font-mono text-[11px] text-white/40 w-12">{outFlight.flight_code}</span>
@@ -372,25 +369,24 @@ export default function TravelPlannerPage() {
                           {/* Hotel */}
                           {hotel && (
                             <div>
-                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Hotel Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
                               <BookingRow
                                 left={<>
                                   <span className="text-[13px] text-white/80">{hotel.name}</span>
-                                  <span className="text-[11px] text-white/25">{hotel.distance}</span>
                                 </>}
                                 price={hotel.price}
                                 priceNote={hotel.total ? `${hotel.total} total` : undefined}
                                 url={hotel.url}
                                 highlight
                               />
+                              {hotel.distance && <p className="text-[10px] text-white/20 mt-1 pl-1">{hotel.distance}</p>}
                             </div>
                           )}
 
                           {/* Return */}
                           {backFlight && (
                             <div>
-                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Return{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
-                              {trip.flights_back_note && <p className="text-[10px] text-white/20 mb-1.5 pl-1">{trip.flights_back_note}</p>}
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Return Flight{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
                               <BookingRow
                                 left={<>
                                   <span className="font-mono text-[11px] text-white/40 w-12">{backFlight.flight_code}</span>
@@ -402,6 +398,7 @@ export default function TravelPlannerPage() {
                                 url={backFlight.url}
                                 highlight
                               />
+                              {trip.flights_back_note && <p className="text-[10px] text-white/20 mt-1 pl-1">{trip.flights_back_note}</p>}
                             </div>
                           )}
 
@@ -452,15 +449,15 @@ export default function TravelPlannerPage() {
             return (
               <div className="flex flex-col gap-0">
                 {/* Trip header */}
-                <div className="flex items-baseline justify-between mb-5">
+                <div className="mb-5">
                   <h3 className="text-lg font-medium text-white">{itinerary.summary}</h3>
-                  <span className="text-lg font-medium text-emerald-300">{itinerary.total_estimate}</span>
+                  <span className="text-[12px] text-[#a3b18a]/70">{itinerary.total_estimate} estimated</span>
                 </div>
 
                 {/* ── Depart ── */}
                 {outFlight && (
                   <div className="mb-1">
-                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Depart{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Departing Flight{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
                     <BookingRow
                       left={<>
                         <span className="font-mono text-[11px] text-white/40 w-12">{outFlight.flight_code}</span>
@@ -497,17 +494,19 @@ export default function TravelPlannerPage() {
                 {/* ── Stay ── */}
                 {hotel && (
                   <div className="my-4">
-                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Hotel Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
                     <BookingRow
                       left={<>
                         <span className="text-[13px] text-white/80">{hotel.name}</span>
-                        <span className="text-[11px] text-white/25">{hotel.distance}</span>
                       </>}
                       price={hotel.price}
                       priceNote={hotel.total ? `${hotel.total} total` : undefined}
                       url={hotel.url}
                       highlight
                     />
+                    {hotel.distance && (
+                      <p className="text-[11px] text-white/25 mt-1.5 pl-1 leading-relaxed">{hotel.distance}</p>
+                    )}
                     <AltToggle count={hotelAlts.length} open={showAltHotels} onToggle={() => setShowAltHotels(!showAltHotels)} />
                     {showAltHotels && hotelAlts.map((h, i) => (
                       <div key={i} className="mt-1.5">
@@ -528,10 +527,7 @@ export default function TravelPlannerPage() {
                 {/* ── Return ── */}
                 {backFlight && (
                   <div className="mb-1">
-                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Return{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
-                    {itinerary.flights_back_note && (
-                      <p className="text-[11px] text-white/25 mb-2 pl-1 leading-relaxed">{itinerary.flights_back_note}</p>
-                    )}
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Return Flight{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
                     <BookingRow
                       left={<>
                         <span className="font-mono text-[11px] text-white/40 w-12">{backFlight.flight_code}</span>
@@ -543,6 +539,9 @@ export default function TravelPlannerPage() {
                       url={backFlight.url}
                       highlight
                     />
+                    {itinerary.flights_back_note && (
+                      <p className="text-[11px] text-white/25 mt-1.5 mb-1 pl-1 leading-relaxed">{itinerary.flights_back_note}</p>
+                    )}
                     <AltToggle count={backAlts.length} open={showAltFlightsBack} onToggle={() => setShowAltFlightsBack(!showAltFlightsBack)} />
                     {showAltFlightsBack && backAlts.map((f, i) => (
                       <div key={i} className="mt-1.5">
@@ -587,7 +586,7 @@ export default function TravelPlannerPage() {
                       <span className="text-[12px] text-white/50">{trip.itinerary?.summary || trip.request}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-[11px] text-white/15">{new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                        {trip.itinerary?.total_estimate && <span className="text-[11px] text-emerald-300/40">{trip.itinerary.total_estimate}</span>}
+                        {trip.itinerary?.total_estimate && <span className="text-[11px] text-[#a3b18a]/40">{trip.itinerary.total_estimate}</span>}
                         <svg className={`h-3 w-3 text-white/15 transition-transform ${expandedTrip === trip.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
@@ -601,13 +600,13 @@ export default function TravelPlannerPage() {
                             <span className="font-mono text-white/25">{f.flight_code}</span>
                             <span>{f.depart}→{f.arrive}</span>
                             <span className="text-white/15">{f.route}</span>
-                            <span className="text-emerald-300/40 ml-auto">{f.price}</span>
+                            <span className="text-[#a3b18a]/40 ml-auto">{f.price}</span>
                           </div>
                         ))}
                         {(trip.itinerary.hotels || []).filter((h) => h.recommended).map((h, i) => (
                           <div key={`h${i}`} className="text-[11px] text-white/35 flex gap-2">
                             <span>{h.name}</span>
-                            <span className="text-emerald-300/40 ml-auto">{h.price}</span>
+                            <span className="text-[#a3b18a]/40 ml-auto">{h.price}</span>
                           </div>
                         ))}
                         {(trip.itinerary.flights_back || []).filter((f) => f.recommended).map((f, i) => (
@@ -615,7 +614,7 @@ export default function TravelPlannerPage() {
                             <span className="font-mono text-white/25">{f.flight_code}</span>
                             <span>{f.depart}→{f.arrive}</span>
                             <span className="text-white/15">{f.route}</span>
-                            <span className="text-emerald-300/40 ml-auto">{f.price}</span>
+                            <span className="text-[#a3b18a]/40 ml-auto">{f.price}</span>
                           </div>
                         ))}
                         <div className="flex gap-3 mt-2">
@@ -654,7 +653,7 @@ function BookingRow({ left, price, priceNote, url, highlight }: {
       </div>
       <div className="flex items-center gap-3 shrink-0 ml-4">
         <div className="text-right">
-          <span className="text-[13px] font-medium text-emerald-300">{price}</span>
+          <span className="text-[13px] font-medium text-[#a3b18a]">{price}</span>
           {priceNote && <span className="block text-[10px] text-white/20">{priceNote}</span>}
         </div>
         <a href={url} target="_blank" rel="noopener noreferrer"

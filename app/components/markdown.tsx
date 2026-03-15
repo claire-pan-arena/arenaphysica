@@ -147,7 +147,7 @@ function renderInline(text: string): React.ReactNode {
     } else if (match[7] !== undefined) {
       // $123.45
       parts.push(
-        <span key={k++} className="font-semibold text-emerald-300">${match[7]}</span>
+        <span key={k++} className="font-semibold text-[#a3b18a]">${match[7]}</span>
       );
     }
 

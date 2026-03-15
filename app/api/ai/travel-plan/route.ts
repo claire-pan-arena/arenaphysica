@@ -80,14 +80,14 @@ export async function POST(request: NextRequest) {
 Return ONLY a valid JSON object — no other text, no markdown, no explanation. The JSON must match this exact schema:
 
 {
-  "summary": "Short trip label, e.g. NYC → LA, Mar 17-19",
+  "summary": "Short trip label, e.g. NYC → LA, March 17-19, 2026",
   "timeline": "Brief logistics: e.g. Depart 8am, land 11:30am, 45min drive, arrive meeting 1pm",
   "flights_out": [
-    {"airline":"Delta","flight_code":"DL1234","date":"Mar 17","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
+    {"airline":"Delta","flight_code":"DL1234","date":"Tuesday, March 17, 2026","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
   ],
   "flights_out_note": "LAX is 45 min / 40 miles from Irvine meeting location via I-405. Allow extra 20 min for afternoon traffic.",
   "flights_back": [
-    {"airline":"Delta","flight_code":"DL5678","date":"Mar 19","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":false}
+    {"airline":"Delta","flight_code":"DL5678","date":"Thursday, March 19, 2026","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":false}
   ],
   "flights_back_note": "Meeting ends at 3pm. Irvine to LAX is 50 min with rush hour traffic. Recommend leaving by 4pm for 6pm flight.",
   "hotels": [
