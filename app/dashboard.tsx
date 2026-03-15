@@ -9,8 +9,15 @@ interface CalendarEvent {
   title: string;
   time: string;
   date: string;
+  isoDate: string;
   location: string | null;
   attendees: number;
+}
+
+const CUSTOMER_PATTERN = /anduril|bausch|b\+l|b&l|mercedes|amd/i;
+
+function isExternalMeeting(title: string): boolean {
+  return CUSTOMER_PATTERN.test(title);
 }
 
 const tools = [
@@ -56,6 +63,8 @@ function groupEventsByDate(events: CalendarEvent[]) {
 export default function Dashboard({ firstName }: { firstName: string }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [modalEvent, setModalEvent] = useState<{ title: string; date: string } | null>(null);
+  const [calFilter, setCalFilter] = useState<"all" | "external">("all");
 
   useEffect(() => {
     fetch("/api/calendar")
@@ -67,7 +76,10 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       .catch(() => setLoadingEvents(false));
   }, []);
 
-  const grouped = groupEventsByDate(events);
+  const filteredEvents = calFilter === "external"
+    ? events.filter((e) => isExternalMeeting(e.title))
+    : events;
+  const grouped = groupEventsByDate(filteredEvents);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -161,20 +173,35 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                 ))}
               </div>
 
-              {/* To-dos */}
+              {/* Action Items */}
               <div className="mt-10">
                 <h2 className="mb-6 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                  To-dos
+                  Action Items
                 </h2>
-                <Todos events={events} />
+                <Todos events={events} modalEvent={modalEvent} onModalClose={() => setModalEvent(null)} />
               </div>
             </div>
 
             {/* Right — Upcoming Events (this week) */}
             <div className="lg:col-span-2">
-              <h2 className="mb-6 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+              <h2 className="mb-3 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 This Week
               </h2>
+              <div className="mb-6 flex gap-2">
+                {(["all", "external"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setCalFilter(f)}
+                    className={`rounded-lg px-3 py-1 text-[10px] tracking-widest uppercase transition-all ${
+                      calFilter === f
+                        ? "bg-white/20 text-white/80 border border-white/25"
+                        : "bg-white/[0.06] text-white/40 border border-white/[0.1] hover:bg-white/[0.1]"
+                    }`}
+                  >
+                    {f === "all" ? "All" : "External"}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-col gap-5">
                 {loadingEvents ? (
                   <div className="flex flex-col gap-3">
@@ -202,21 +229,32 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                         {dayEvents.map((event, i) => (
                           <div
                             key={i}
-                            className="flex items-start gap-4 rounded-lg border border-white/[0.12] bg-white/20 p-4 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
+                            className="flex items-start justify-between rounded-lg border border-white/[0.12] bg-white/20 p-4 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
                           >
-                            <span className="mt-0.5 whitespace-nowrap font-mono text-[11px] text-white/40">
-                              {event.time}
-                            </span>
-                            <div className="flex flex-col gap-1">
-                              <p className="text-[13px] font-medium text-white/90">
-                                {event.title}
-                              </p>
-                              {event.attendees > 0 && (
-                                <span className="text-[10px] text-white/30">
-                                  {event.attendees} attendee{event.attendees !== 1 ? "s" : ""}
-                                </span>
-                              )}
+                            <div className="flex items-start gap-4">
+                              <span className="mt-0.5 whitespace-nowrap font-mono text-[11px] text-white/40">
+                                {event.time}
+                              </span>
+                              <div className="flex flex-col gap-1">
+                                <p className="text-[13px] font-medium text-white/90">
+                                  {event.title}
+                                </p>
+                                {event.attendees > 0 && (
+                                  <span className="text-[10px] text-white/30">
+                                    {event.attendees} attendee{event.attendees !== 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            <button
+                              onClick={() => setModalEvent({ title: event.title, date: event.isoDate })}
+                              className="mt-0.5 p-1 text-white/25 hover:text-white/60 transition-colors"
+                              title="Create action item"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                              </svg>
+                            </button>
                           </div>
                         ))}
                       </div>

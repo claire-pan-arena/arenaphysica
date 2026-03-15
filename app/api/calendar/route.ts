@@ -64,6 +64,7 @@ export async function GET() {
         month: "short",
         day: "numeric",
       }),
+      isoDate: startDate.toISOString().split("T")[0],
       location: event.location || null,
       attendees: event.attendees?.length || 0,
     };
