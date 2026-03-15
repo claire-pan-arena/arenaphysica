@@ -34,8 +34,9 @@ export async function GET() {
   );
 
   if (!res.ok) {
+    const errorBody = await res.text();
     return NextResponse.json(
-      { error: "Failed to fetch calendar" },
+      { error: "Failed to fetch calendar", detail: errorBody },
       { status: res.status }
     );
   }

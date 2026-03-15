@@ -15,6 +15,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Arena Physica",
   description: "Arena Physica",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
