@@ -134,13 +134,14 @@ Today: ${new Date().toISOString().split("T")[0]}`;
 
   const data = await res.json();
 
-  // Extract text blocks and find JSON
+  // Extract text blocks and find JSON, strip citation tags from web search
   let jsonStr = "";
   for (const block of data.content || []) {
     if (block.type === "text") {
       jsonStr += block.text;
     }
   }
+  jsonStr = jsonStr.replace(/<cite[^>]*>/g, "").replace(/<\/cite>/g, "");
 
   // Try to extract JSON from the response
   let itinerary;
