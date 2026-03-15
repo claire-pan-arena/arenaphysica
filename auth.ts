@@ -8,6 +8,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  pages: {
+    signIn: "/signin",
+  },
   callbacks: {
     async signIn({ profile }) {
       return profile?.email?.endsWith("@arena-ai.com") ?? false;
