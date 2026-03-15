@@ -7,9 +7,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Try both v5 (authjs) and v4 (next-auth) cookie names
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    cookieName: request.cookies.has("authjs.session-token")
+      ? "authjs.session-token"
+      : request.cookies.has("__Secure-authjs.session-token")
+        ? "__Secure-authjs.session-token"
+        : "next-auth.session-token",
   });
 
   if (!token) {
@@ -20,5 +26,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|signin|_next/static|_next/image|favicon.ico|icon.svg|logo.svg).*)"],
+  matcher: ["/((?!api/auth|api/tools|signin|_next/static|_next/image|favicon.ico|icon.svg|logo.svg).*)"],
 };
