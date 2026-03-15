@@ -8,70 +8,9 @@ interface Tool {
   name: string;
   description: string;
   creator: string;
+  creatorEmail: string;
   category: string;
   url?: string;
-}
-
-const TOOLS_KEY = "gc-shared-tools";
-const ENABLED_KEY = "gc-enabled-tools";
-
-const defaultTools: Tool[] = [
-  {
-    id: "meeting-report",
-    name: "Generate Meeting Report",
-    description: "Summarize notes and action items from your last meeting",
-    creator: "Arena Physica",
-    category: "Productivity",
-  },
-  {
-    id: "customer-crm",
-    name: "View Customer CRM",
-    description: "Access customer profiles, deal stages, and engagement history",
-    creator: "Arena Physica",
-    category: "Sales",
-  },
-  {
-    id: "deployment-tracker",
-    name: "Deployment Tracker",
-    description: "Monitor active field deployments and hardware status",
-    creator: "Arena Physica",
-    category: "Operations",
-  },
-  {
-    id: "design-canvas",
-    name: "Design Canvas",
-    description: "Open the RF design workspace for hardware modeling",
-    creator: "Arena Physica",
-    category: "Engineering",
-  },
-];
-
-function loadTools(): Tool[] {
-  if (typeof window === "undefined") return defaultTools;
-  try {
-    const stored = localStorage.getItem(TOOLS_KEY);
-    return stored ? JSON.parse(stored) : defaultTools;
-  } catch {
-    return defaultTools;
-  }
-}
-
-function saveTools(tools: Tool[]) {
-  localStorage.setItem(TOOLS_KEY, JSON.stringify(tools));
-}
-
-function loadEnabled(): Set<string> {
-  if (typeof window === "undefined") return new Set(defaultTools.map((t) => t.id));
-  try {
-    const stored = localStorage.getItem(ENABLED_KEY);
-    return stored ? new Set(JSON.parse(stored)) : new Set(defaultTools.map((t) => t.id));
-  } catch {
-    return new Set(defaultTools.map((t) => t.id));
-  }
-}
-
-function saveEnabled(ids: Set<string>) {
-  localStorage.setItem(ENABLED_KEY, JSON.stringify([...ids]));
 }
 
 const categories = ["All", "Productivity", "Sales", "Operations", "Engineering", "Other"];
@@ -79,50 +18,62 @@ const categories = ["All", "Productivity", "Sales", "Operations", "Engineering",
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [enabled, setEnabled] = useState<Set<string>>(new Set());
-  const [loaded, setLoaded] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [showCreate, setShowCreate] = useState(false);
   const [newTool, setNewTool] = useState({ name: "", description: "", category: "Productivity", url: "" });
 
   useEffect(() => {
-    setTools(loadTools());
-    setEnabled(loadEnabled());
-    setLoaded(true);
+    fetch("/api/tools")
+      .then((r) => r.json())
+      .then((data) => {
+        setTools(data.tools || []);
+        setEnabled(new Set(data.enabledIds || []));
+        setCurrentUserEmail(data.currentUserEmail || "");
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (loaded) {
-      saveTools(tools);
-      saveEnabled(enabled);
-    }
-  }, [tools, enabled, loaded]);
-
-  const toggleTool = (id: string) => {
+  const toggleTool = async (id: string) => {
+    const willEnable = !enabled.has(id);
     setEnabled((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (willEnable) next.add(id);
+      else next.delete(id);
       return next;
+    });
+    await fetch("/api/tools/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toolId: id, enabled: willEnable }),
     });
   };
 
-  const createTool = () => {
+  const createTool = async () => {
     if (!newTool.name.trim()) return;
-    const tool: Tool = {
-      id: `custom-${Date.now()}`,
-      name: newTool.name.trim(),
-      description: newTool.description.trim(),
-      creator: "You",
-      category: newTool.category,
-      url: newTool.url.trim() || undefined,
-    };
-    setTools((prev) => [...prev, tool]);
-    setEnabled((prev) => new Set([...prev, tool.id]));
+    const res = await fetch("/api/tools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newTool),
+    });
+    const { id } = await res.json();
+    // Refresh list
+    const data = await fetch("/api/tools").then((r) => r.json());
+    setTools(data.tools || []);
+    setEnabled(new Set(data.enabledIds || []));
+    setCurrentUserEmail(data.currentUserEmail || "");
     setNewTool({ name: "", description: "", category: "Productivity", url: "" });
     setShowCreate(false);
   };
 
-  const deleteTool = (id: string) => {
+  const deleteTool = async (id: string) => {
+    await fetch("/api/tools", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     setTools((prev) => prev.filter((t) => t.id !== id));
     setEnabled((prev) => {
       const next = new Set(prev);
@@ -165,7 +116,6 @@ export default function ToolsPage() {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Header */}
         <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 backdrop-blur-md bg-white/[0.03]">
           <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
             Arena Physica
@@ -179,7 +129,6 @@ export default function ToolsPage() {
         </header>
 
         <div className="mx-auto max-w-5xl px-8 py-10">
-          {/* Title + Create */}
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2
@@ -267,53 +216,65 @@ export default function ToolsPage() {
           </div>
 
           {/* Tools grid */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((tool) => (
-              <div
-                key={tool.id}
-                className="flex flex-col justify-between rounded border border-white/[0.08] bg-[#2a3040]/90 p-5 backdrop-blur-md transition-all hover:border-white/20"
-              >
-                <div>
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-[13px] font-semibold text-white/90">
-                      {tool.name}
-                    </h3>
-                    <span className="ml-2 whitespace-nowrap rounded bg-white/[0.06] px-2 py-0.5 text-[9px] tracking-wider text-white/30 uppercase">
-                      {tool.category}
-                    </span>
+          {loading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="rounded border border-white/[0.06] bg-[#2a3040]/90 p-5 backdrop-blur-md animate-pulse">
+                  <div className="h-4 w-32 rounded bg-white/10 mb-3" />
+                  <div className="h-3 w-full rounded bg-white/[0.06] mb-2" />
+                  <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((tool) => (
+                <div
+                  key={tool.id}
+                  className="flex flex-col justify-between rounded border border-white/[0.08] bg-[#2a3040]/90 p-5 backdrop-blur-md transition-all hover:border-white/20"
+                >
+                  <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-[13px] font-semibold text-white/90">
+                        {tool.name}
+                      </h3>
+                      <span className="ml-2 whitespace-nowrap rounded bg-white/[0.06] px-2 py-0.5 text-[9px] tracking-wider text-white/30 uppercase">
+                        {tool.category}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-white/40 mb-3">
+                      {tool.description}
+                    </p>
+                    <p className="text-[10px] text-white/20">
+                      by {tool.creator}
+                    </p>
                   </div>
-                  <p className="text-xs leading-relaxed text-white/40 mb-3">
-                    {tool.description}
-                  </p>
-                  <p className="text-[10px] text-white/20">
-                    by {tool.creator}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <button
-                    onClick={() => toggleTool(tool.id)}
-                    className={`rounded px-4 py-1.5 text-[10px] tracking-widest uppercase transition-all ${
-                      enabled.has(tool.id)
-                        ? "bg-white/15 text-white/80 border border-white/20"
-                        : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {enabled.has(tool.id) ? "Enabled" : "Enable"}
-                  </button>
-                  {tool.creator === "You" && (
+                  <div className="mt-4 flex items-center justify-between">
                     <button
-                      onClick={() => deleteTool(tool.id)}
-                      className="text-white/20 hover:text-white/50 transition-colors"
+                      onClick={() => toggleTool(tool.id)}
+                      className={`rounded px-4 py-1.5 text-[10px] tracking-widest uppercase transition-all ${
+                        enabled.has(tool.id)
+                          ? "bg-white/15 text-white/80 border border-white/20"
+                          : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06]"
+                      }`}
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
+                      {enabled.has(tool.id) ? "Enabled" : "Enable"}
                     </button>
-                  )}
+                    {tool.creatorEmail === currentUserEmail && (
+                      <button
+                        onClick={() => deleteTool(tool.id)}
+                        className="text-white/20 hover:text-white/50 transition-colors"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
