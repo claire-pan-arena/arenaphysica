@@ -14,7 +14,7 @@ export async function GET() {
   try {
     await initDb();
 
-    const tools = await sql`SELECT * FROM tools ORDER BY created_at ASC`;
+    const tools = await sql`SELECT * FROM tools WHERE private = FALSE OR creator_email = ${session.user.email} ORDER BY created_at ASC`;
     const enabled = await sql`
       SELECT tool_id FROM enabled_tools WHERE user_email = ${session.user.email}
     `;
@@ -30,6 +30,7 @@ export async function GET() {
         creatorEmail: t.creator_email,
         category: t.category,
         url: t.url,
+        private: t.private,
       })),
       enabledIds,
       currentUserEmail: session.user.email,
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, description, category, url } = body;
+  const { name, description, category, url, private: isPrivate } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
@@ -57,8 +58,8 @@ export async function POST(request: NextRequest) {
   const id = `custom-${Date.now()}`;
 
   await sql`
-    INSERT INTO tools (id, name, description, creator_email, creator_name, category, url)
-    VALUES (${id}, ${name.trim()}, ${description?.trim() || ""}, ${session.user.email}, ${session.user.name || "Unknown"}, ${category || "Other"}, ${url?.trim() || null})
+    INSERT INTO tools (id, name, description, creator_email, creator_name, category, url, private)
+    VALUES (${id}, ${name.trim()}, ${description?.trim() || ""}, ${session.user.email}, ${session.user.name || "Unknown"}, ${category || "Other"}, ${url?.trim() || null}, ${!!isPrivate})
   `;
 
   // Auto-enable for creator

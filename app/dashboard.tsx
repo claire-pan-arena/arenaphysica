@@ -166,12 +166,20 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     Tools
                   </h2>
                 </div>
-                <Link
-                  href="/tools"
-                  className="text-[10px] tracking-widest text-[#9a9da6] uppercase hover:text-[#e8e5e0] transition-colors"
-                >
-                  Browse Tools Library
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/kb"
+                    className="text-[10px] tracking-widest text-[#9a9da6] uppercase hover:text-[#e8e5e0] transition-colors"
+                  >
+                    Knowledge Base
+                  </Link>
+                  <Link
+                    href="/tools"
+                    className="text-[10px] tracking-widest text-[#9a9da6] uppercase hover:text-[#e8e5e0] transition-colors"
+                  >
+                    Browse Tools Library
+                  </Link>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {(showAllTools ? enabledTools : enabledTools.slice(0, 4)).map((tool) => (
@@ -201,7 +209,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                 <h2 className="mb-6 text-[11px] font-medium tracking-widest text-[#a09570] uppercase">
                   Action Items
                 </h2>
-                <Todos events={events} modalEvent={modalEvent} onModalClose={() => setModalEvent(null)} />
+                <Todos events={events} modalEvent={modalEvent} onModalClose={() => setModalEvent(null)} enabledTools={enabledTools} />
               </div>
             </div>
 

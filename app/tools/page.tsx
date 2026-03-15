@@ -11,6 +11,7 @@ interface Tool {
   creatorEmail: string;
   category: string;
   url?: string;
+  private?: boolean;
 }
 
 const categories = ["All", "Productivity", "Sales", "Operations", "Engineering", "Other"];
@@ -22,7 +23,7 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [showCreate, setShowCreate] = useState(false);
-  const [newTool, setNewTool] = useState({ name: "", description: "", category: "Productivity", url: "" });
+  const [newTool, setNewTool] = useState({ name: "", description: "", category: "Productivity", url: "", private: false });
 
   useEffect(() => {
     fetch("/api/tools")
@@ -63,7 +64,7 @@ export default function ToolsPage() {
     setTools(data.tools || []);
     setEnabled(new Set(data.enabledIds || []));
     setCurrentUserEmail(data.currentUserEmail || "");
-    setNewTool({ name: "", description: "", category: "Productivity", url: "" });
+    setNewTool({ name: "", description: "", category: "Productivity", url: "", private: false });
     setShowCreate(false);
   };
 
@@ -185,6 +186,16 @@ export default function ToolsPage() {
                   onChange={(e) => setNewTool((p) => ({ ...p, url: e.target.value }))}
                   className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
                 />
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setNewTool((p) => ({ ...p, private: !p.private }))}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${newTool.private ? "bg-[#8a9a5b]/40" : "bg-[#9a9da6]/20"}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-[#e8e5e0] transition-transform ${newTool.private ? "translate-x-4" : ""}`} />
+                  </button>
+                  <span className="text-[11px] tracking-widest text-[#9a9da6] uppercase">Private (only me)</span>
+                </label>
                 <button
                   onClick={createTool}
                   className="rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-5 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:bg-[#8a9a5b]/30"
@@ -235,9 +246,19 @@ export default function ToolsPage() {
                       <h3 className="text-[14px] font-medium text-[#e8e5e0]">
                         {tool.name}
                       </h3>
-                      <span className="ml-2 whitespace-nowrap rounded bg-[#8a9a5b]/10 px-2 py-0.5 text-[9px] tracking-wider text-[#a09570] uppercase">
-                        {tool.category}
-                      </span>
+                      <div className="ml-2 flex items-center gap-1.5">
+                        {tool.private && (
+                          <span className="flex items-center gap-1 whitespace-nowrap rounded bg-[#9a9da6]/10 px-2 py-0.5 text-[9px] tracking-wider text-[#9a9da6] uppercase">
+                            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                            </svg>
+                            Private
+                          </span>
+                        )}
+                        <span className="whitespace-nowrap rounded bg-[#8a9a5b]/10 px-2 py-0.5 text-[9px] tracking-wider text-[#a09570] uppercase">
+                          {tool.category}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs leading-relaxed text-[#9a9da6] mb-3">
                       {tool.description}

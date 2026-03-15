@@ -8,6 +8,7 @@ interface ActionItem {
   done: boolean;
   priority: "low" | "medium" | "high";
   deadline: string;
+  notes: string;
   suggested: boolean;
   dismissed: boolean;
 }
@@ -21,6 +22,15 @@ interface CalendarEvent {
 }
 
 const CUSTOMERS = /anduril|bausch|b\+l|b&l|mercedes|amd/i;
+const QBR_PATTERN = /qbr|mbr|steering\s*committee/i;
+
+function extractCustomerName(title: string): string {
+  const match = title.match(/anduril|bausch|b\+l|b&l|mercedes|amd/i);
+  if (!match) return "";
+  const name = match[0].toLowerCase();
+  if (name === "b+l" || name === "b&l") return "Bausch";
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
 function generateSuggestions(events: CalendarEvent[]): ActionItem[] {
   const suggestions: ActionItem[] = [];
@@ -29,12 +39,28 @@ function generateSuggestions(events: CalendarEvent[]): ActionItem[] {
     const title = event.title;
     if (!CUSTOMERS.test(title)) continue;
 
+    if (QBR_PATTERN.test(title)) {
+      const customer = extractCustomerName(title);
+      const meetingType = /qbr/i.test(title) ? "QBR" : /mbr/i.test(title) ? "MBR" : "Steering Committee";
+      suggestions.push({
+        id: `sug-pres-${title}`,
+        text: `Create Presentation for ${customer} ${meetingType}`,
+        done: false,
+        priority: "high",
+        deadline: "",
+        notes: "",
+        suggested: true,
+        dismissed: false,
+      });
+    }
+
     suggestions.push({
       id: `sug-${title}`,
-      text: `Prepare for ${title}`,
+      text: `Write Agenda for ${title}`,
       done: false,
       priority: "medium",
       deadline: "",
+      notes: "",
       suggested: true,
       dismissed: false,
     });
@@ -65,27 +91,30 @@ function saveItems(items: ActionItem[]) {
 }
 
 function suggestActionName(eventTitle: string): string {
-  const lower = eventTitle.toLowerCase();
-  if (/sync|standup|check.?in|1.?on.?1|weekly/i.test(lower)) {
-    return `Prepare agenda for ${eventTitle}`;
+  if (QBR_PATTERN.test(eventTitle) && CUSTOMERS.test(eventTitle)) {
+    const customer = extractCustomerName(eventTitle);
+    const meetingType = /qbr/i.test(eventTitle) ? "QBR" : /mbr/i.test(eventTitle) ? "MBR" : "Steering Committee";
+    return `Create Presentation for ${customer} ${meetingType}`;
   }
-  if (/demo|presentation|pitch/i.test(lower)) {
-    return `Prepare materials for ${eventTitle}`;
+  return `Write Agenda for ${eventTitle}`;
+}
+
+function suggestDeadline(eventTitle: string, eventDate: string): string {
+  if (!eventDate) return "";
+  const d = new Date(eventDate + "T00:00:00");
+  if (QBR_PATTERN.test(eventTitle)) {
+    d.setDate(d.getDate() - 10);
+  } else {
+    d.setDate(d.getDate() - 1);
   }
-  if (/review|retro|debrief/i.test(lower)) {
-    return `Compile notes for ${eventTitle}`;
-  }
-  if (/interview|screening/i.test(lower)) {
-    return `Review candidate for ${eventTitle}`;
-  }
-  return `Follow up on ${eventTitle}`;
+  return d.toISOString().split("T")[0];
 }
 
 interface CreateModalProps {
   eventTitle: string;
   eventDate: string;
   onClose: () => void;
-  onCreate: (item: { text: string; priority: "low" | "medium" | "high"; deadline: string }) => void;
+  onCreate: (item: { text: string; priority: "low" | "medium" | "high"; deadline: string; notes: string }) => void;
 }
 
 function dayBefore(isoDate: string): string {
@@ -97,8 +126,9 @@ function dayBefore(isoDate: string): string {
 
 function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateModalProps) {
   const [text, setText] = useState(suggestActionName(eventTitle));
-  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [deadline, setDeadline] = useState(dayBefore(eventDate));
+  const [priority, setPriority] = useState<"low" | "medium" | "high">(QBR_PATTERN.test(eventTitle) ? "high" : "medium");
+  const [deadline, setDeadline] = useState(suggestDeadline(eventTitle, eventDate));
+  const [notes, setNotes] = useState("");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -152,6 +182,17 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
             />
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-[10px] tracking-widest text-[#9a9da6] uppercase">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any notes..."
+              rows={3}
+              className="w-full rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 outline-none focus:border-[#8a9a5b]/35 resize-none"
+            />
+          </div>
+
           <div className="flex gap-3 mt-2">
             <button
               onClick={onClose}
@@ -162,7 +203,7 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
             <button
               onClick={() => {
                 if (text.trim()) {
-                  onCreate({ text: text.trim(), priority, deadline });
+                  onCreate({ text: text.trim(), priority, deadline, notes: notes.trim() });
                 }
               }}
               className="flex-1 rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-4 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase transition-all hover:bg-[#8a9a5b]/30"
@@ -176,16 +217,50 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
   );
 }
 
+interface EnabledTool {
+  id: string;
+  name: string;
+}
+
+// Map tool keywords to help match action items to relevant tools
+const TOOL_KEYWORDS: Record<string, string[]> = {
+  "weekly-agenda": ["agenda", "weekly plan", "weekly agenda"],
+  "travel-organizer": ["travel", "flight", "hotel", "logistics", "visit"],
+  "meeting-report": ["meeting report", "meeting notes", "compile notes", "notes for"],
+  "design-canvas": ["design", "rf design", "hardware"],
+  "customer-crm": ["crm", "customer profile", "deal"],
+  "deployment-tracker": ["deployment", "deploy", "hardware status"],
+};
+
+function findMatchingTool(text: string, tools: EnabledTool[]): EnabledTool | null {
+  const lower = text.toLowerCase();
+  for (const tool of tools) {
+    const keywords = TOOL_KEYWORDS[tool.id];
+    if (keywords && keywords.some((kw) => lower.includes(kw))) {
+      return tool;
+    }
+    // Fallback: check if any significant word from tool name appears in action item
+    const toolWords = tool.name.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    if (toolWords.some((w) => lower.includes(w))) {
+      return tool;
+    }
+  }
+  return null;
+}
+
 interface TodosProps {
   events: CalendarEvent[];
   modalEvent?: { title: string; date: string } | null;
   onModalClose?: () => void;
+  enabledTools?: EnabledTool[];
 }
 
-export default function Todos({ events, modalEvent, onModalClose }: TodosProps) {
+export default function Todos({ events, modalEvent, onModalClose, enabledTools = [] }: TodosProps) {
   const [items, setItems] = useState<ActionItem[]>([]);
   const [newItem, setNewItem] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     setItems(loadItems());
@@ -215,6 +290,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
         done: false,
         priority: "medium",
         deadline: "",
+        notes: "",
         suggested: false,
         dismissed: false,
       },
@@ -222,7 +298,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
     setNewItem("");
   }, [newItem]);
 
-  const createFromModal = (data: { text: string; priority: "low" | "medium" | "high"; deadline: string }) => {
+  const createFromModal = (data: { text: string; priority: "low" | "medium" | "high"; deadline: string; notes: string }) => {
     setItems((prev) => [
       ...prev,
       {
@@ -231,6 +307,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
         done: false,
         priority: data.priority,
         deadline: data.deadline,
+        notes: data.notes,
         suggested: false,
         dismissed: false,
       },
@@ -253,7 +330,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
   const dismissSuggestion = (id: string) => {
     setItems((prev) => [
       ...prev,
-      { id, text: "", done: false, priority: "medium", deadline: "", suggested: true, dismissed: true },
+      { id, text: "", done: false, priority: "medium", deadline: "", notes: "", suggested: true, dismissed: true },
     ]);
   };
 
@@ -338,47 +415,96 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
       {/* Active items */}
       {activeItems.length > 0 && (
         <div className="flex flex-col gap-2">
-          {activeItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-3 backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35"
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleItem(item.id)}
-                  className="h-4 w-4 rounded-sm border border-[#9a9da6]/40 transition-colors hover:border-[#8a9a5b]"
-                />
-                <div className={`h-1.5 w-1.5 rounded-full ${priorityDot(item.priority)}`} />
-                <span className="text-sm text-[#e8e5e0]">{item.text}</span>
-                {item.deadline && (
-                  <span className={`text-[10px] ${
-                    new Date(item.deadline + "T23:59:59") < new Date()
-                      ? "text-red-400/80 font-medium"
-                      : "text-[#9a9da6]/50"
-                  }`}>
-                    {new Date(item.deadline + "T23:59:59") < new Date() ? "OVERDUE · " : ""}
-                    {item.deadline}
-                  </span>
+          {activeItems.map((item) => {
+            const isExpanded = expandedId === item.id;
+            const isOverdue = item.deadline && new Date(item.deadline + "T23:59:59") < new Date();
+            const matchedTool = findMatchingTool(item.text, enabledTools);
+            return (
+              <div
+                key={item.id}
+                className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-3 backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35"
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleItem(item.id); }}
+                      className="h-4 w-4 shrink-0 rounded-sm border border-[#9a9da6]/40 transition-colors hover:border-[#8a9a5b]"
+                    />
+                    <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
+                    <span className="text-sm text-[#e8e5e0]">{item.text}</span>
+                    {isOverdue && (
+                      <span className="text-[10px] text-red-400/80 font-medium">OVERDUE</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {matchedTool && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); }}
+                        className="flex items-center gap-1.5 rounded-md border border-[#8a9a5b]/20 bg-[#8a9a5b]/10 px-2 py-1 text-[#8a9a5b] transition-all hover:bg-[#8a9a5b]/20 hover:border-[#8a9a5b]/40"
+                        title={`Open ${matchedTool.name}`}
+                      >
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.049.58.025 1.193-.14 1.743" />
+                        </svg>
+                        <span className="text-[9px] tracking-wider uppercase">{matchedTool.name}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteItem(item.id)}
+                      className="p-1 text-[#9a9da6]/30 transition-colors hover:text-[#e8e5e0]"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div className="mt-3 ml-[3.25rem] flex flex-col gap-2 border-t border-[#8a9a5b]/10 pt-3">
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Priority</span>
+                      <span className={`text-[11px] font-medium ${
+                        item.priority === "high" ? "text-red-400" : item.priority === "medium" ? "text-amber-400" : "text-[#9a9da6]"
+                      }`}>
+                        {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Deadline</span>
+                      <span className={`text-[11px] ${isOverdue ? "text-red-400/80 font-medium" : "text-[#e8e5e0]/70"}`}>
+                        {item.deadline || "None"}
+                      </span>
+                    </div>
+                    {item.notes && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Notes</span>
+                        <p className="text-[11px] text-[#e8e5e0]/60 leading-relaxed">{item.notes}</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-              <button
-                onClick={() => deleteItem(item.id)}
-                className="p-1 text-[#9a9da6]/30 transition-colors hover:text-[#e8e5e0]"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Completed */}
+      {/* Completed toggle */}
       {completedItems.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-[10px] tracking-widest text-[#9a9da6]/40 uppercase">Completed</p>
-          {completedItems.map((item) => (
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="flex items-center gap-2 text-[10px] tracking-widest text-[#9a9da6]/40 uppercase hover:text-[#9a9da6]/60 transition-colors"
+          >
+            <svg className={`h-3 w-3 transition-transform ${showCompleted ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+            Completed ({completedItems.length})
+          </button>
+          {showCompleted && completedItems.map((item) => (
             <div
               key={item.id}
               className="flex items-center justify-between rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/40 px-4 py-3"
