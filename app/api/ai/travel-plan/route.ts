@@ -151,30 +151,33 @@ Today: ${new Date().toISOString().split("T")[0]}`;
   // Try to extract JSON from the response
   let itinerary;
   try {
-    // Try direct parse first
     itinerary = JSON.parse(jsonStr.trim());
   } catch {
-    // Try to find JSON within the text
     const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         itinerary = JSON.parse(jsonMatch[0]);
       } catch {
-        // Return raw text as fallback
-        return NextResponse.json({ id: `tp-${Date.now()}`, fallback: jsonStr });
+        // Can't parse — save raw text as fallback
       }
-    } else {
-      return NextResponse.json({ id: `tp-${Date.now()}`, fallback: jsonStr });
     }
   }
 
   const id = `tp-${Date.now()}`;
-  await sql`
-    INSERT INTO travel_plans (id, request, result, creator_email, creator_name)
-    VALUES (${id}, ${travelRequest.trim()}, ${JSON.stringify(itinerary)}, ${session.user.email}, ${session.user.name || "Unknown"})
-  `;
+  const resultStr = itinerary ? JSON.stringify(itinerary) : jsonStr;
+  try {
+    await sql`
+      INSERT INTO travel_plans (id, request, result, creator_email, creator_name)
+      VALUES (${id}, ${travelRequest.trim()}, ${resultStr}, ${session.user.email}, ${session.user.name || "Unknown"})
+    `;
+  } catch (err) {
+    console.error("[travel-plan] DB insert failed:", err);
+  }
 
-  return NextResponse.json({ id, itinerary });
+  if (itinerary) {
+    return NextResponse.json({ id, itinerary });
+  }
+  return NextResponse.json({ id, fallback: jsonStr });
 }
 
 export async function GET() {
@@ -196,6 +199,7 @@ export async function GET() {
         id: p.id,
         request: p.request,
         itinerary,
+        fallback: itinerary ? null : p.result,
         createdAt: p.created_at,
       };
     }),
