@@ -446,18 +446,18 @@ export default function TravelPlannerPage() {
                           {day.items.map((item, ii) => (
                             <div key={ii} className="flex items-start gap-2 py-0.5">
                               <span className="text-[11px] text-white/25 shrink-0 w-16 tabular-nums">{item.time}</span>
-                              <span className={`text-[11px] shrink-0 w-4 ${
-                                item.type === "flight" ? "text-blue-300/50" :
-                                item.type === "meeting" ? "text-white/40" :
-                                item.type === "travel" ? "text-amber-300/40" :
-                                item.type === "hotel" ? "text-purple-300/40" :
-                                "text-white/20"
+                              <span className={`text-[9px] shrink-0 w-10 uppercase tracking-wider ${
+                                item.type === "flight" ? "text-blue-300/40" :
+                                item.type === "meeting" ? "text-white/30" :
+                                item.type === "travel" ? "text-amber-200/30" :
+                                item.type === "hotel" ? "text-white/20" :
+                                "text-white/15"
                               }`}>
-                                {item.type === "flight" ? "✈" :
-                                 item.type === "meeting" ? "●" :
-                                 item.type === "travel" ? "🚗" :
-                                 item.type === "hotel" ? "🏨" :
-                                 "—"}
+                                {item.type === "flight" ? "fly" :
+                                 item.type === "meeting" ? "mtg" :
+                                 item.type === "travel" ? "drive" :
+                                 item.type === "hotel" ? "hotel" :
+                                 ""}
                               </span>
                               <div className="min-w-0">
                                 <span className="text-[11px] text-white/50">{item.event}</span>
