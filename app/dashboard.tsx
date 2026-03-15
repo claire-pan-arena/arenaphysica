@@ -1,6 +1,14 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
+
+interface CalendarEvent {
+  title: string;
+  time: string;
+  location: string | null;
+  attendees: number;
+}
 
 const tools = [
   {
@@ -42,111 +50,155 @@ const tools = [
   },
 ];
 
-const upcomingEvents = [
-  { time: "10:00 AM", title: "Field Sync — West Region", tag: "Standup" },
-  { time: "11:30 AM", title: "Customer Demo — Northrop", tag: "External" },
-  { time: "1:00 PM", title: "Hardware Review — PCB Rev 3", tag: "Design" },
-  { time: "3:00 PM", title: "Deployment Strategy — Q2", tag: "Planning" },
-  { time: "4:30 PM", title: "Firmware OTA Debrief", tag: "Engineering" },
-];
-
-const tagColors: Record<string, string> = {
-  Standup: "bg-[#4a5540]/20 text-[#4a5540]",
-  External: "bg-[#5a4a6a]/20 text-[#5a4a6a]",
-  Design: "bg-[#6a5a40]/20 text-[#6a5a40]",
-  Planning: "bg-[#405a6a]/20 text-[#405a6a]",
-  Engineering: "bg-[#6a4040]/20 text-[#6a4040]",
-};
-
 export default function Dashboard({ firstName }: { firstName: string }) {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/calendar")
+      .then((res) => res.json())
+      .then((data) => {
+        setEvents(data.events || []);
+        setLoadingEvents(false);
+      })
+      .catch(() => setLoadingEvents(false));
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#f4f1eb]">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-[#d9d5cc] px-8 py-5">
-        <div className="flex items-center gap-6">
-          <h1
-            className="text-xl tracking-tight text-[#1a1a1a]"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-          >
-            Ground Control
-          </h1>
-          <span className="text-xs tracking-widest text-[#a09e97] uppercase">
-            Arena Physica
-          </span>
-        </div>
-        <div className="flex items-center gap-6">
-          <p className="text-sm text-[#6b6860]">
-            Welcome, <span className="text-[#1a1a1a] font-medium">{firstName}</span>
-          </p>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Gradient background */}
+      <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
+
+      {/* Horizon glow */}
+      <div
+        className="fixed inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(180,160,130,0.3) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* Large wireframe sphere */}
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <svg
+          viewBox="0 0 400 400"
+          className="h-[800px] w-[800px] animate-[spin_30s_linear_infinite] opacity-[0.07]"
+        >
+          <circle cx="200" cy="200" r="180" fill="none" stroke="white" strokeWidth="0.4" />
+          <circle cx="200" cy="200" r="140" fill="none" stroke="white" strokeWidth="0.4" />
+          <circle cx="200" cy="200" r="100" fill="none" stroke="white" strokeWidth="0.4" />
+          <circle cx="200" cy="200" r="60" fill="none" stroke="white" strokeWidth="0.4" />
+          <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" />
+          <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(60 200 200)" />
+          <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(120 200 200)" />
+          <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" />
+          <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(60 200 200)" />
+          <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(120 200 200)" />
+          <line x1="20" y1="200" x2="380" y2="200" stroke="white" strokeWidth="0.3" />
+          <line x1="200" y1="20" x2="200" y2="380" stroke="white" strokeWidth="0.3" />
+        </svg>
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10">
+        {/* Header */}
+        <header className="flex items-center justify-between border-b border-white/10 px-8 py-5 backdrop-blur-sm">
+          <div className="flex flex-col">
+            <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase">
+              Arena Physica
+            </h1>
+            <p
+              className="text-lg text-white mt-0.5"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              Welcome to Ground Control, {firstName}
+            </p>
+          </div>
           <button
             onClick={() => signOut()}
-            className="text-xs tracking-widest text-[#a09e97] uppercase hover:text-[#6b6860] transition-colors"
+            className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
           >
             Sign out
           </button>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <div className="mx-auto max-w-7xl px-8 py-10">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
-          {/* Left — Tools */}
-          <div className="lg:col-span-3">
-            <h2 className="mb-1 text-xs tracking-widest text-[#a09e97] uppercase">
-              Tools
-            </h2>
-            <p className="mb-6 text-sm text-[#6b6860]">
-              Quick access to your most-used workflows
-            </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {tools.map((tool) => (
-                <button
-                  key={tool.name}
-                  className="group flex flex-col gap-3 border border-[#d9d5cc] bg-white p-6 text-left transition-all duration-200 hover:border-[#4a5540]/40 hover:shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-[#4a5540]">{tool.icon}</div>
-                    <h3 className="text-sm font-medium text-[#1a1a1a]">
-                      {tool.name}
-                    </h3>
-                  </div>
-                  <p className="text-xs leading-relaxed text-[#a09e97]">
-                    {tool.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Right — Upcoming Events */}
-          <div className="lg:col-span-2">
-            <h2 className="mb-1 text-xs tracking-widest text-[#a09e97] uppercase">
-              Upcoming
-            </h2>
-            <p className="mb-6 text-sm text-[#6b6860]">Today&apos;s schedule</p>
-            <div className="flex flex-col gap-3">
-              {upcomingEvents.map((event, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-4 border border-[#d9d5cc] bg-white p-4 transition-all duration-200 hover:border-[#4a5540]/40"
-                >
-                  <span className="mt-0.5 whitespace-nowrap font-mono text-xs text-[#a09e97]">
-                    {event.time}
-                  </span>
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-sm font-medium text-[#1a1a1a]">
-                      {event.title}
+        {/* Main content */}
+        <div className="mx-auto max-w-7xl px-8 py-10">
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
+            {/* Left — Tools */}
+            <div className="lg:col-span-3">
+              <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
+                Tools
+              </h2>
+              <p className="mb-6 text-sm text-white/50">
+                Quick access to your most-used workflows
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {tools.map((tool) => (
+                  <button
+                    key={tool.name}
+                    className="group flex flex-col gap-3 border border-white/10 bg-white/5 p-6 text-left backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-white/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-white/70">{tool.icon}</div>
+                      <h3 className="text-sm font-medium text-white">
+                        {tool.name}
+                      </h3>
+                    </div>
+                    <p className="text-xs leading-relaxed text-white/40">
+                      {tool.description}
                     </p>
-                    <span
-                      className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                        tagColors[event.tag] || "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {event.tag}
-                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right — Upcoming Events */}
+            <div className="lg:col-span-2">
+              <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
+                Upcoming
+              </h2>
+              <p className="mb-6 text-sm text-white/50">Today&apos;s schedule</p>
+              <div className="flex flex-col gap-3">
+                {loadingEvents ? (
+                  <div className="flex flex-col gap-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="border border-white/10 bg-white/5 p-4 backdrop-blur-sm animate-pulse"
+                      >
+                        <div className="h-3 w-16 rounded bg-white/10 mb-2" />
+                        <div className="h-4 w-40 rounded bg-white/10" />
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
+                ) : events.length === 0 ? (
+                  <div className="border border-white/10 bg-white/5 p-6 backdrop-blur-sm text-center">
+                    <p className="text-sm text-white/40">No more events today</p>
+                  </div>
+                ) : (
+                  events.map((event, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-4 border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-white/10"
+                    >
+                      <span className="mt-0.5 whitespace-nowrap font-mono text-xs text-white/40">
+                        {event.time}
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm font-medium text-white">
+                          {event.title}
+                        </p>
+                        {event.attendees > 0 && (
+                          <span className="text-[10px] text-white/30">
+                            {event.attendees} attendee{event.attendees !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
