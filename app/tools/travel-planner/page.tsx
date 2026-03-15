@@ -207,28 +207,26 @@ export default function TravelPlannerPage() {
           )}
 
           {/* Trip input */}
-          {!hasResult && (
-            <div className="rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
-              <textarea
+          <div className="rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl">
+            <div className="flex gap-3">
+              <input
+                type="text"
                 value={request}
                 onChange={(e) => setRequest(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && request.trim()) { e.preventDefault(); generate(); } }}
-                placeholder="Where do you need to be? e.g. 'Anduril meeting in Irvine Tuesday 2pm, back Wednesday evening' or 'Customer visit in Detroit March 20-22, meetings at 9am each day'"
-                rows={2}
+                onKeyDown={(e) => { if (e.key === "Enter" && request.trim() && !generating) generate(); }}
+                placeholder="Where do you need to be? e.g. 'Anduril in Irvine Tuesday 2pm, back Wednesday'"
                 autoFocus
-                className="w-full rounded-lg border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-white/20 resize-none leading-relaxed"
+                className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-white/20"
               />
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={() => generate()}
-                  disabled={generating || !request.trim()}
-                  className="rounded-lg border border-white/30 bg-white/15 px-6 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 disabled:opacity-40"
-                >
-                  {generating ? "Searching..." : "Find Options"}
-                </button>
-              </div>
+              <button
+                onClick={() => generate()}
+                disabled={generating || !request.trim()}
+                className="shrink-0 rounded-lg border border-white/30 bg-white/15 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 disabled:opacity-40"
+              >
+                {generating ? "Searching..." : "Go"}
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Loading */}
           {generating && !itinerary && (
@@ -289,7 +287,7 @@ export default function TravelPlannerPage() {
                   value={refinement}
                   onChange={(e) => setRefinement(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && refinement.trim() && !generating) generate(refinement.trim()); }}
-                  placeholder="Change something... e.g. 'earlier flight' or 'hotel closer to downtown'"
+                  placeholder="Adjust: 'earlier flight', 'cheaper hotel', 'need rental car'..."
                   className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-white/20"
                 />
                 <button
@@ -298,12 +296,6 @@ export default function TravelPlannerPage() {
                   className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] tracking-widest text-white/60 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
                 >
                   {generating ? "..." : "Refine"}
-                </button>
-                <button
-                  onClick={() => { setItinerary(null); setFallback(null); setRequest(lastRequest); }}
-                  className="shrink-0 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2.5 text-[10px] tracking-widest text-white/30 uppercase transition-all hover:text-white/50"
-                >
-                  New Trip
                 </button>
               </div>
             </div>

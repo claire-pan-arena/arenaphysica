@@ -64,6 +64,7 @@ Return ONLY a valid JSON object — no other text, no markdown, no explanation. 
 }
 
 Rules:
+- NEVER ask follow-up questions. NEVER say "I need more information". If details are missing, make smart assumptions: use the nearest major airport, assume standard business hours (9am-5pm), assume next occurrence of the date, pick the closest hotels to the meeting area. Just give the best answer you can.
 - Search for REAL current flights with actual flight codes (e.g. DL1234, UA567, AA890) and dates
 - URLs MUST be deep links to the booking/search page for that specific route and date on the airline or hotel site — NOT the homepage. For example: delta.com/flight-search/search?... with origin, destination, date params, or marriott.com/search/... with location and date params. Search the airline/hotel website to find the correct URL structure.
 - Mark the best option as "recommended":true based on user preferences
@@ -71,7 +72,8 @@ Rules:
 - flights_out_note: one sentence on distance/drive time from arrival airport to meeting location, including traffic considerations
 - flights_back_note: one sentence on when to leave the meeting to make the flight, accounting for traffic
 - Account for travel time, traffic, check-in — make sure they arrive on time
-- Keep it minimal — no fluff${prefsContext}
+- Keep it minimal — no fluff
+- Always return the JSON object, even if you have to make assumptions${prefsContext}
 
 Today: ${new Date().toISOString().split("T")[0]}`;
 
