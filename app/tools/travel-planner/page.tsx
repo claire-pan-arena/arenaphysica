@@ -665,28 +665,6 @@ export default function TravelPlannerPage() {
                     {expandedTrip === trip.id && trip.itinerary && (
                       <div className="px-3 pb-3 flex flex-col gap-1">
                         <p className="text-[11px] text-white/20 mb-1">{trip.itinerary.timeline}</p>
-                        {(trip.itinerary.flights_out || []).filter((f) => f.recommended).map((f, i) => (
-                          <div key={`o${i}`} className="text-[11px] text-white/35 flex gap-2">
-                            <span className="font-mono text-white/25">{f.flight_code}</span>
-                            <span>{f.depart}→{f.arrive}</span>
-                            <span className="text-white/15">{f.route}</span>
-                            <span className="text-[#a3b18a]/40 ml-auto">{f.price}</span>
-                          </div>
-                        ))}
-                        {(trip.itinerary.hotels || []).filter((h) => h.recommended).map((h, i) => (
-                          <div key={`h${i}`} className="text-[11px] text-white/35 flex gap-2">
-                            <span>{h.name}</span>
-                            <span className="text-[#a3b18a]/40 ml-auto">{h.price}</span>
-                          </div>
-                        ))}
-                        {(trip.itinerary.flights_back || []).filter((f) => f.recommended).map((f, i) => (
-                          <div key={`r${i}`} className="text-[11px] text-white/35 flex gap-2">
-                            <span className="font-mono text-white/25">{f.flight_code}</span>
-                            <span>{f.depart}→{f.arrive}</span>
-                            <span className="text-white/15">{f.route}</span>
-                            <span className="text-[#a3b18a]/40 ml-auto">{f.price}</span>
-                          </div>
-                        ))}
                       </div>
                     )}
                   </div>
