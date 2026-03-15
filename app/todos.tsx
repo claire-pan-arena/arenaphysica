@@ -213,11 +213,11 @@ export default function Todos({ events }: { events: CalendarEvent[] }) {
           value={newTodo}
           onChange={(e) => setNewTodo(e.target.value)}
           placeholder="Add a to-do..."
-          className="flex-1 border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-sm outline-none transition-colors focus:border-white/25"
+          className="flex-1 rounded border border-white/[0.08] bg-[#1e2535]/80 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-md outline-none transition-colors focus:border-white/20"
         />
         <button
           type="submit"
-          className="border border-white/10 bg-white/5 px-4 py-2.5 text-xs tracking-widest text-white/70 uppercase backdrop-blur-sm transition-all hover:border-white/25 hover:bg-white/10"
+          className="rounded border border-white/[0.08] bg-[#1e2535]/80 px-4 py-2.5 text-xs tracking-widest text-white/70 uppercase backdrop-blur-md transition-all hover:border-white/20 hover:bg-[#232b3d]/90"
         >
           Add
         </button>
@@ -232,7 +232,7 @@ export default function Todos({ events }: { events: CalendarEvent[] }) {
           {visibleSuggestions.map((suggestion) => (
             <div
               key={suggestion.id}
-              className="flex items-center justify-between border border-white/[0.07] bg-white/[0.03] px-4 py-3 backdrop-blur-sm"
+              className="flex items-center justify-between rounded border border-white/[0.06] bg-[#1e2535]/60 px-4 py-3 backdrop-blur-md"
             >
               <div className="flex items-center gap-3">
                 <svg
@@ -281,7 +281,7 @@ export default function Todos({ events }: { events: CalendarEvent[] }) {
           {activeTodos.map((todo) => (
             <div
               key={todo.id}
-              className="flex items-center justify-between border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-all hover:border-white/20"
+              className="flex items-center justify-between rounded border border-white/[0.08] bg-[#1e2535]/80 px-4 py-3 backdrop-blur-md transition-all hover:border-white/20"
             >
               <div className="flex items-center gap-3">
                 <button
@@ -312,7 +312,7 @@ export default function Todos({ events }: { events: CalendarEvent[] }) {
           {completedTodos.map((todo) => (
             <div
               key={todo.id}
-              className="flex items-center justify-between border border-white/[0.05] bg-white/[0.02] px-4 py-3"
+              className="flex items-center justify-between rounded border border-white/[0.05] bg-[#1e2535]/50 px-4 py-3"
             >
               <div className="flex items-center gap-3">
                 <button
@@ -342,7 +342,7 @@ export default function Todos({ events }: { events: CalendarEvent[] }) {
 
       {/* Empty state */}
       {activeTodos.length === 0 && completedTodos.length === 0 && visibleSuggestions.length === 0 && (
-        <div className="border border-white/[0.05] bg-white/[0.02] p-6 text-center">
+        <div className="rounded border border-white/[0.05] bg-[#1e2535]/50 p-6 text-center">
           <p className="text-sm text-white/30">No to-dos yet. Add one above.</p>
         </div>
       )}

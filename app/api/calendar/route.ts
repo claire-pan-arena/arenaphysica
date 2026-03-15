@@ -13,15 +13,17 @@ export async function GET() {
   }
 
   const now = new Date();
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
+  const endOfWeek = new Date(now);
+  const daysUntilSunday = 7 - now.getDay();
+  endOfWeek.setDate(now.getDate() + daysUntilSunday);
+  endOfWeek.setHours(23, 59, 59, 999);
 
   const params = new URLSearchParams({
     timeMin: now.toISOString(),
-    timeMax: endOfDay.toISOString(),
+    timeMax: endOfWeek.toISOString(),
     singleEvents: "true",
     orderBy: "startTime",
-    maxResults: "8",
+    maxResults: "30",
   });
 
   const res = await fetch(
@@ -40,18 +42,31 @@ export async function GET() {
 
   const data = await res.json();
 
-  const events = (data.items || []).map((event: any) => ({
-    title: event.summary || "Untitled",
-    time: event.start?.dateTime
-      ? new Date(event.start.dateTime).toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-      : "All day",
-    location: event.location || null,
-    attendees: event.attendees?.length || 0,
-  }));
+  const events = (data.items || []).map((event: any) => {
+    const startDate = event.start?.dateTime
+      ? new Date(event.start.dateTime)
+      : event.start?.date
+        ? new Date(event.start.date)
+        : new Date();
+
+    return {
+      title: event.summary || "Untitled",
+      time: event.start?.dateTime
+        ? startDate.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })
+        : "All day",
+      date: startDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+      location: event.location || null,
+      attendees: event.attendees?.length || 0,
+    };
+  });
 
   return NextResponse.json({ events });
 }

@@ -7,6 +7,7 @@ import Todos from "./todos";
 interface CalendarEvent {
   title: string;
   time: string;
+  date: string;
   location: string | null;
   attendees: number;
 }
@@ -51,6 +52,39 @@ const tools = [
   },
 ];
 
+function TypedWelcome({ firstName }: { firstName: string }) {
+  const fullText = `Welcome to Ground Control, ${firstName}`;
+  const [displayed, setDisplayed] = useState("");
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(fullText.slice(0, i));
+      if (i >= fullText.length) clearInterval(interval);
+    }, 30);
+    return () => clearInterval(interval);
+  }, [fullText]);
+
+  return (
+    <span>
+      {displayed}
+      {displayed.length < fullText.length && (
+        <span className="animate-pulse">|</span>
+      )}
+    </span>
+  );
+}
+
+function groupEventsByDate(events: CalendarEvent[]) {
+  const groups: Record<string, CalendarEvent[]> = {};
+  for (const event of events) {
+    if (!groups[event.date]) groups[event.date] = [];
+    groups[event.date].push(event);
+  }
+  return groups;
+}
+
 export default function Dashboard({ firstName }: { firstName: string }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -65,17 +99,19 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       .catch(() => setLoadingEvents(false));
   }, []);
 
+  const grouped = groupEventsByDate(events);
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Gradient background */}
-      <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
+      <div className="fixed inset-0 bg-gradient-to-b from-[#2a3040] via-[#3a4555] to-[#1a2030]" />
 
       {/* Horizon glow */}
       <div
         className="fixed inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(180,160,130,0.3) 0%, transparent 70%)",
+            "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(100,120,140,0.2) 0%, transparent 70%)",
         }}
       />
 
@@ -83,7 +119,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <svg
           viewBox="0 0 400 400"
-          className="h-[800px] w-[800px] animate-[spin_30s_linear_infinite] opacity-[0.07]"
+          className="h-[800px] w-[800px] animate-[spin_30s_linear_infinite] opacity-[0.05]"
         >
           <circle cx="200" cy="200" r="180" fill="none" stroke="white" strokeWidth="0.4" />
           <circle cx="200" cy="200" r="140" fill="none" stroke="white" strokeWidth="0.4" />
@@ -103,46 +139,48 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-white/10 px-8 py-5 backdrop-blur-sm">
-          <div className="flex flex-col">
-            <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase">
+        <header className="border-b border-white/10 px-8 py-5 backdrop-blur-md bg-white/[0.03]">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
               Arena Physica
             </h1>
+            <button
+              onClick={() => signOut()}
+              className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+          <div className="mt-2 border-t border-white/[0.06] pt-3">
             <p
-              className="text-lg text-white mt-0.5"
+              className="text-2xl text-white/90"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
-              Welcome to Ground Control, {firstName}
+              <TypedWelcome firstName={firstName} />
             </p>
           </div>
-          <button
-            onClick={() => signOut()}
-            className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
-          >
-            Sign out
-          </button>
         </header>
 
         {/* Main content */}
         <div className="mx-auto max-w-7xl px-8 py-10">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
-            {/* Left — Tools */}
+            {/* Left — Tools + Todos */}
             <div className="lg:col-span-3">
-              <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
+              <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Tools
               </h2>
-              <p className="mb-6 text-sm text-white/50">
+              <p className="mb-6 text-sm text-white/40">
                 Quick access to your most-used workflows
               </p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {tools.map((tool) => (
                   <button
                     key={tool.name}
-                    className="group flex flex-col gap-3 border border-white/10 bg-white/5 p-6 text-left backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-white/10"
+                    className="group flex flex-col gap-3 rounded border border-white/[0.08] bg-[#1e2535]/80 p-6 text-left backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#232b3d]/90"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-white/70">{tool.icon}</div>
-                      <h3 className="text-sm font-medium text-white">
+                      <div className="text-white/60">{tool.icon}</div>
+                      <h3 className="text-[13px] font-semibold text-white/90">
                         {tool.name}
                       </h3>
                     </div>
@@ -155,29 +193,29 @@ export default function Dashboard({ firstName }: { firstName: string }) {
 
               {/* To-dos */}
               <div className="mt-10">
-                <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
+                <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                   To-dos
                 </h2>
-                <p className="mb-6 text-sm text-white/50">
+                <p className="mb-6 text-sm text-white/40">
                   Track tasks and act on calendar-based suggestions
                 </p>
                 <Todos events={events} />
               </div>
             </div>
 
-            {/* Right — Upcoming Events */}
+            {/* Right — Upcoming Events (this week) */}
             <div className="lg:col-span-2">
-              <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
-                Upcoming
+              <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+                This Week
               </h2>
-              <p className="mb-6 text-sm text-white/50">Today&apos;s schedule</p>
-              <div className="flex flex-col gap-3">
+              <p className="mb-6 text-sm text-white/40">Upcoming schedule</p>
+              <div className="flex flex-col gap-5">
                 {loadingEvents ? (
                   <div className="flex flex-col gap-3">
-                    {[...Array(3)].map((_, i) => (
+                    {[...Array(4)].map((_, i) => (
                       <div
                         key={i}
-                        className="border border-white/10 bg-white/5 p-4 backdrop-blur-sm animate-pulse"
+                        className="rounded border border-white/[0.06] bg-[#1e2535]/80 p-4 backdrop-blur-md animate-pulse"
                       >
                         <div className="h-3 w-16 rounded bg-white/10 mb-2" />
                         <div className="h-4 w-40 rounded bg-white/10" />
@@ -185,27 +223,36 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     ))}
                   </div>
                 ) : events.length === 0 ? (
-                  <div className="border border-white/10 bg-white/5 p-6 backdrop-blur-sm text-center">
-                    <p className="text-sm text-white/40">No more events today</p>
+                  <div className="rounded border border-white/[0.06] bg-[#1e2535]/80 p-6 backdrop-blur-md text-center">
+                    <p className="text-sm text-white/40">No upcoming events this week</p>
                   </div>
                 ) : (
-                  events.map((event, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-4 border border-white/10 bg-white/5 p-4 backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-white/10"
-                    >
-                      <span className="mt-0.5 whitespace-nowrap font-mono text-xs text-white/40">
-                        {event.time}
-                      </span>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm font-medium text-white">
-                          {event.title}
-                        </p>
-                        {event.attendees > 0 && (
-                          <span className="text-[10px] text-white/30">
-                            {event.attendees} attendee{event.attendees !== 1 ? "s" : ""}
-                          </span>
-                        )}
+                  Object.entries(grouped).map(([date, dayEvents]) => (
+                    <div key={date}>
+                      <p className="mb-2 text-[10px] font-medium tracking-widest text-white/30 uppercase">
+                        {date}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        {dayEvents.map((event, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-4 rounded border border-white/[0.08] bg-[#1e2535]/80 p-4 backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#232b3d]/90"
+                          >
+                            <span className="mt-0.5 whitespace-nowrap font-mono text-[11px] text-white/40">
+                              {event.time}
+                            </span>
+                            <div className="flex flex-col gap-1">
+                              <p className="text-[13px] font-medium text-white/90">
+                                {event.title}
+                              </p>
+                              {event.attendees > 0 && (
+                                <span className="text-[10px] text-white/30">
+                                  {event.attendees} attendee{event.attendees !== 1 ? "s" : ""}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))
