@@ -187,7 +187,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                 {tools.map((tool) => (
                   <button
                     key={tool.name}
-                    className="group flex flex-col gap-3 rounded-lg border border-white/[0.12] bg-white/[0.07] p-6 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
+                    className="group flex flex-col gap-3 rounded-lg border border-white/[0.12] bg-white/20 p-6 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-white/60">{tool.icon}</div>
@@ -226,7 +226,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     {[...Array(4)].map((_, i) => (
                       <div
                         key={i}
-                        className="rounded-lg border border-white/[0.1] bg-white/[0.06] p-4 backdrop-blur-xl animate-pulse"
+                        className="rounded-lg border border-white/[0.1] bg-white/20 p-4 backdrop-blur-xl animate-pulse"
                       >
                         <div className="h-3 w-16 rounded bg-white/10 mb-2" />
                         <div className="h-4 w-40 rounded bg-white/10" />
@@ -234,7 +234,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     ))}
                   </div>
                 ) : events.length === 0 ? (
-                  <div className="rounded-lg border border-white/[0.1] bg-white/[0.06] p-6 backdrop-blur-xl text-center">
+                  <div className="rounded-lg border border-white/[0.1] bg-white/20 p-6 backdrop-blur-xl text-center">
                     <p className="text-sm text-white/40">No upcoming events this week</p>
                   </div>
                 ) : (
@@ -247,7 +247,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                         {dayEvents.map((event, i) => (
                           <div
                             key={i}
-                            className="flex items-start gap-4 rounded-lg border border-white/[0.12] bg-white/[0.07] p-4 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
+                            className="flex items-start gap-4 rounded-lg border border-white/[0.12] bg-white/20 p-4 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
                           >
                             <span className="mt-0.5 whitespace-nowrap font-mono text-[11px] text-white/40">
                               {event.time}
