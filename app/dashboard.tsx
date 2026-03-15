@@ -74,7 +74,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [noteEvent, setNoteEvent] = useState<{ title: string; date: string } | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  const [calFilter, setCalFilter] = useState<"all" | "external">("all");
+  const [calFilter, setCalFilter] = useState<"all" | "external">("external");
   const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
   const [showAllTools, setShowAllTools] = useState(false);
 
