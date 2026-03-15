@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import NavHeader from "../../components/nav-header";
+import Markdown from "../../components/markdown";
 
 export default function WeeklySyncPage() {
   const [generating, setGenerating] = useState(false);
@@ -73,9 +74,7 @@ export default function WeeklySyncPage() {
               <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Weekly Agenda
               </h3>
-              <div className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
-                {result}
-              </div>
+              <Markdown content={result} />
             </div>
           )}
         </div>

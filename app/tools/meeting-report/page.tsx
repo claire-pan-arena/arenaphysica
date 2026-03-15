@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import NavHeader from "../../components/nav-header";
+import Markdown from "../../components/markdown";
 
 interface MeetingNote {
   id: string;
@@ -270,8 +271,8 @@ export default function MeetingReportPage() {
               <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Generated Report
               </h3>
-              <div className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
-                {result}
+              <div>
+                <Markdown content={result} />
               </div>
             </div>
           )}
@@ -314,8 +315,8 @@ export default function MeetingReportPage() {
                       </div>
                     </div>
                     {expandedReport === report.id && (
-                      <div className="mt-4 border-t border-white/10 pt-4 text-sm text-white/70 whitespace-pre-wrap leading-relaxed">
-                        {report.content}
+                      <div className="mt-4 border-t border-white/10 pt-4">
+                        <Markdown content={report.content} />
                       </div>
                     )}
                   </div>

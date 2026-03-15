@@ -40,16 +40,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const systemPrompt = `You are a travel planning assistant for Arena Physica, a company that visits customers for business meetings. Generate optimized travel options based on the user's request and preferences.
+  const systemPrompt = `You are a travel planning assistant for Arena Physica. You MUST use web search to find real, current flight and hotel options.
 
-For each option, provide:
-- Flight suggestions (airline, approximate times, route)
-- Hotel recommendations near the meeting location
-- Ground transportation notes
-- Estimated total cost range
-- Why this option is good given their preferences
+For the user's trip request:
+1. Search for actual flights on the relevant routes — include airline, flight times, prices, and booking links (Google Flights, airline websites, Kayak, etc.)
+2. Search for hotels near the meeting/destination — include hotel name, nightly rate, distance to meeting location, and booking links (hotels.com, booking.com, hotel website, etc.)
+3. Search for ground transportation options with costs
 
-Format your response in clear sections with markdown. Provide 2-3 options ranked by best fit to their preferences. Be specific with airline names, hotel chains, and neighborhoods.${prefsContext}`;
+Format your response as:
+
+## Flights
+For each flight option, show:
+- **Airline Route** — departure → arrival times | $PRICE | [Book on Site](url)
+
+## Hotels
+For each hotel option, show:
+- **Hotel Name** — $PRICE/night | distance to destination | [Book](url)
+
+## Ground Transport
+- Options with estimated costs
+
+## Recommended Itinerary
+Pick the best combination based on their preferences and explain why.
+
+Always include direct links. Show prices next to every suggestion. Prioritize the user's preferences when ranking options.${prefsContext}
+
+Today's date is ${new Date().toISOString().split("T")[0]}.`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -60,8 +76,15 @@ Format your response in clear sections with markdown. Provide 2-3 options ranked
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
+      max_tokens: 4000,
       system: systemPrompt,
+      tools: [
+        {
+          type: "web_search_20250305",
+          name: "web_search",
+          max_uses: 10,
+        },
+      ],
       messages: [{ role: "user", content: travelRequest }],
     }),
   });
@@ -72,7 +95,15 @@ Format your response in clear sections with markdown. Provide 2-3 options ranked
   }
 
   const data = await res.json();
-  const content = data.content?.[0]?.text || "No response generated.";
+
+  // Extract text blocks from the response (web search results are interleaved)
+  const textParts: string[] = [];
+  for (const block of data.content || []) {
+    if (block.type === "text") {
+      textParts.push(block.text);
+    }
+  }
+  const content = textParts.join("\n\n") || "No response generated.";
 
   // Save the plan
   const id = `tp-${Date.now()}`;

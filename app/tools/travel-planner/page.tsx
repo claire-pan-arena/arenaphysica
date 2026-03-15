@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import NavHeader from "../../components/nav-header";
+import Markdown from "../../components/markdown";
 
 interface TravelPreferences {
   preferredAirlines: string;
@@ -210,9 +211,7 @@ export default function TravelPlannerPage() {
               <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Travel Options
               </h3>
-              <div className="prose prose-invert prose-sm max-w-none text-white/80 leading-relaxed whitespace-pre-wrap">
-                {result}
-              </div>
+              <Markdown content={result} />
             </div>
           )}
 
@@ -243,8 +242,8 @@ export default function TravelPlannerPage() {
                       </svg>
                     </div>
                     {expandedPlan === plan.id && (
-                      <div className="mt-4 border-t border-white/10 pt-4 text-sm text-white/70 whitespace-pre-wrap leading-relaxed">
-                        {plan.result}
+                      <div className="mt-4 border-t border-white/10 pt-4">
+                        <Markdown content={plan.result} />
                       </div>
                     )}
                   </div>
