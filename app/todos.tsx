@@ -6,7 +6,7 @@ interface ActionItem {
   id: string;
   text: string;
   done: boolean;
-  priority: "low" | "medium" | "high";
+  priority: "P0" | "P1" | "P2" | "P3";
   deadline: string;
   notes: string;
   suggested: boolean;
@@ -49,7 +49,7 @@ function generateSuggestions(events: CalendarEvent[]): ActionItem[] {
         id: `sug-pres-${title}`,
         text: `Create Presentation for ${customer} ${meetingType}`,
         done: false,
-        priority: "high",
+        priority: "P1",
         deadline: suggestDeadline(title, eventDate),
         notes: "",
         suggested: true,
@@ -61,7 +61,7 @@ function generateSuggestions(events: CalendarEvent[]): ActionItem[] {
       id: `sug-${title}`,
       text: `Write Agenda for ${title}`,
       done: false,
-      priority: "medium",
+      priority: "P2",
       deadline: suggestDeadline(title, eventDate),
       notes: "",
       suggested: true,
@@ -117,7 +117,7 @@ interface CreateModalProps {
   eventTitle: string;
   eventDate: string;
   onClose: () => void;
-  onCreate: (item: { text: string; priority: "low" | "medium" | "high"; deadline: string; notes: string }) => void;
+  onCreate: (item: { text: string; priority: "P0" | "P1" | "P2" | "P3"; deadline: string; notes: string }) => void;
 }
 
 function dayBefore(isoDate: string): string {
@@ -129,7 +129,7 @@ function dayBefore(isoDate: string): string {
 
 function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateModalProps) {
   const [text, setText] = useState(suggestActionName(eventTitle));
-  const [priority, setPriority] = useState<"low" | "medium" | "high">(QBR_PATTERN.test(eventTitle) ? "high" : "medium");
+  const [priority, setPriority] = useState<"P0" | "P1" | "P2" | "P3">(QBR_PATTERN.test(eventTitle) ? "P1" : "P2");
   const [deadline, setDeadline] = useState(suggestDeadline(eventTitle, eventDate));
   const [notes, setNotes] = useState("");
 
@@ -155,17 +155,19 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
           <div>
             <label className="mb-1.5 block text-[10px] tracking-widest text-white/60 uppercase">Priority</label>
             <div className="flex gap-2">
-              {(["low", "medium", "high"] as const).map((p) => (
+              {(["P0", "P1", "P2", "P3"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPriority(p)}
                   className={`flex-1 rounded-lg px-3 py-2 text-[11px] tracking-widest uppercase transition-all ${
                     priority === p
-                      ? p === "high"
+                      ? p === "P0"
                         ? "bg-red-500/20 text-red-300 border border-red-400/30"
-                        : p === "medium"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-400/30"
-                          : "bg-white/10 text-white/80 border border-white/20"
+                        : p === "P1"
+                          ? "bg-orange-500/20 text-orange-300 border border-orange-400/30"
+                          : p === "P2"
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-400/30"
+                            : "bg-white/10 text-white/80 border border-white/20"
                       : "bg-white/[0.07] text-white/60 border border-white/10 hover:bg-white/10"
                   }`}
                 >
@@ -291,7 +293,7 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
         id: `manual-${Date.now()}`,
         text: newItem.trim(),
         done: false,
-        priority: "medium",
+        priority: "P2",
         deadline: "",
         notes: "",
         suggested: false,
@@ -301,7 +303,7 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
     setNewItem("");
   }, [newItem]);
 
-  const createFromModal = (data: { text: string; priority: "low" | "medium" | "high"; deadline: string; notes: string }) => {
+  const createFromModal = (data: { text: string; priority: "P0" | "P1" | "P2" | "P3"; deadline: string; notes: string }) => {
     setItems((prev) => [
       ...prev,
       {
@@ -333,17 +335,18 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
   const dismissSuggestion = (id: string) => {
     setItems((prev) => [
       ...prev,
-      { id, text: "", done: false, priority: "medium", deadline: "", notes: "", suggested: true, dismissed: true },
+      { id, text: "", done: false, priority: "P2", deadline: "", notes: "", suggested: true, dismissed: true },
     ]);
   };
 
   const activeItems = manualItems.filter((t) => !t.done);
   const completedItems = manualItems.filter((t) => t.done);
 
-  const priorityDot = (p: string) => {
-    if (p === "high") return "bg-red-400/70";
-    if (p === "medium") return "bg-amber-400/70";
-    return "bg-white/30";
+  const priorityColor = (p: string) => {
+    if (p === "P0") return { dot: "bg-red-400/70", text: "text-red-400" };
+    if (p === "P1") return { dot: "bg-orange-400/70", text: "text-orange-400" };
+    if (p === "P2") return { dot: "bg-amber-400/70", text: "text-amber-400" };
+    return { dot: "bg-white/30", text: "text-white/40" };
   };
 
   return (
@@ -396,10 +399,10 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
                 <svg className="h-3.5 w-3.5 text-white/25" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
                 </svg>
-                <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(suggestion.priority)}`} />
+                <span className={`text-xs font-mono font-medium ${priorityColor(suggestion.priority).text}`}>{suggestion.priority}</span>
                 <span className="text-sm text-white/80">{suggestion.text}</span>
                 {suggestion.deadline && (
-                  <span className="text-[10px] text-white/30">{suggestion.deadline}</span>
+                  <span className="text-xs text-white/40">{suggestion.deadline}</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -440,10 +443,10 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
                       onClick={(e) => { e.stopPropagation(); toggleItem(item.id); }}
                       className="h-4 w-4 shrink-0 rounded-sm border border-white/20 transition-colors hover:border-white/30"
                     />
-                    <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
+                    <span className={`text-xs font-mono font-medium ${priorityColor(item.priority).text}`}>{item.priority}</span>
                     <span className="text-sm text-white">{item.text}</span>
                     {item.deadline && (
-                      <span className={`text-[10px] ${isOverdue ? "text-red-400/80 font-medium" : "text-white/30"}`}>
+                      <span className={`text-xs ${isOverdue ? "text-red-400 font-medium" : "text-white/50"}`}>
                         {isOverdue ? "OVERDUE · " : ""}{item.deadline}
                       </span>
                     )}
