@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import NavHeader from "../components/nav-header";
 
 interface KBNote {
   id: string;
@@ -134,23 +134,13 @@ export default function KnowledgeBasePage() {
 
       {/* Content */}
       <div className="relative z-10">
-        <header className="flex items-center justify-between px-8 py-4">
-          <Link href="/" className="text-xs tracking-[0.3em] text-[#c5b9a8] uppercase font-medium hover:text-[#e8e5e0] transition-colors">
-            Arena Physica
-          </Link>
-          <Link
-            href="/"
-            className="text-xs tracking-widest text-[#9a9da6] uppercase hover:text-[#e8e5e0] transition-colors"
-          >
-            Back to Dashboard
-          </Link>
-        </header>
+        <NavHeader />
 
         <div className="px-8 py-10">
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2
-                className="text-3xl text-[#e8e5e0]"
+                className="text-3xl text-white"
                 style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
               >
                 Knowledge Base
@@ -158,7 +148,7 @@ export default function KnowledgeBasePage() {
             </div>
             <button
               onClick={() => setShowCreate(!showCreate)}
-              className="rounded-lg border border-[#8a9a5b]/20 bg-[#2d3a2e]/70 px-5 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:border-[#8a9a5b]/40 hover:bg-[#2d3a2e]/85"
+              className="rounded-lg border border-white/20 bg-white/[0.07] px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:border-white/30 hover:bg-white/10"
             >
               {showCreate ? "Cancel" : "+ New Note"}
             </button>
@@ -166,8 +156,8 @@ export default function KnowledgeBasePage() {
 
           {/* Create form */}
           {showCreate && (
-            <div className="mb-8 rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-[#a09570] uppercase">
+            <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
+              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Create a new note
               </h3>
               <div className="flex flex-col gap-4">
@@ -176,25 +166,25 @@ export default function KnowledgeBasePage() {
                   placeholder="Note title"
                   value={newNote.title}
                   onChange={(e) => setNewNote((p) => ({ ...p, title: e.target.value }))}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20"
                 />
                 <textarea
                   placeholder="Write your note here..."
                   value={newNote.content}
                   onChange={(e) => setNewNote((p) => ({ ...p, content: e.target.value }))}
                   rows={8}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35 resize-none leading-relaxed"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20 resize-none leading-relaxed"
                 />
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowCreate(false)}
-                    className="rounded-lg border border-[#9a9da6]/15 bg-[#2d3a2e]/60 px-5 py-2.5 text-xs tracking-widest text-[#9a9da6] uppercase transition-all hover:bg-[#2d3a2e]/80"
+                    className="rounded-lg border border-white/10 bg-white/[0.07] px-5 py-2.5 text-xs tracking-widest text-white/60 uppercase transition-all hover:bg-white/10"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={createNote}
-                    className="rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-5 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:bg-[#8a9a5b]/30"
+                    className="rounded-lg border border-white/30 bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:bg-white/20"
                   >
                     Save Note
                   </button>
@@ -210,7 +200,7 @@ export default function KnowledgeBasePage() {
               placeholder="Search notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full max-w-md rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
+              className="w-full max-w-md rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20"
             />
           </div>
 
@@ -218,16 +208,16 @@ export default function KnowledgeBasePage() {
           {loading ? (
             <div className="flex flex-col gap-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/60 p-5 backdrop-blur-xl animate-pulse">
-                  <div className="h-5 w-48 rounded bg-[#8a9a5b]/10 mb-3" />
-                  <div className="h-3 w-full rounded bg-[#8a9a5b]/5 mb-2" />
-                  <div className="h-3 w-2/3 rounded bg-[#8a9a5b]/5" />
+                <div key={i} className="rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl animate-pulse">
+                  <div className="h-5 w-48 rounded bg-white/10 mb-3" />
+                  <div className="h-3 w-full rounded bg-white/[0.05] mb-2" />
+                  <div className="h-3 w-2/3 rounded bg-white/[0.05]" />
                 </div>
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/50 p-6 text-center">
-              <p className="text-sm text-[#9a9da6]">
+            <div className="rounded-lg border border-white/10 bg-white/[0.05] p-6 text-center">
+              <p className="text-sm text-white/60">
                 {search ? "No notes match your search." : "No notes yet. Create one to get started."}
               </p>
             </div>
@@ -240,7 +230,7 @@ export default function KnowledgeBasePage() {
                 return (
                   <div
                     key={note.id}
-                    className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 p-5 backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35"
+                    className="rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl transition-all hover:border-white/20"
                   >
                     {isEditing ? (
                       <div className="flex flex-col gap-4">
@@ -248,24 +238,24 @@ export default function KnowledgeBasePage() {
                           type="text"
                           value={editData.title}
                           onChange={(e) => setEditData((p) => ({ ...p, title: e.target.value }))}
-                          className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] outline-none focus:border-[#8a9a5b]/35"
+                          className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white outline-none focus:border-white/20"
                         />
                         <textarea
                           value={editData.content}
                           onChange={(e) => setEditData((p) => ({ ...p, content: e.target.value }))}
                           rows={8}
-                          className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] outline-none focus:border-[#8a9a5b]/35 resize-none leading-relaxed"
+                          className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white outline-none focus:border-white/20 resize-none leading-relaxed"
                         />
                         <div className="flex gap-3">
                           <button
                             onClick={() => setEditingId(null)}
-                            className="rounded-lg border border-[#9a9da6]/15 bg-[#2d3a2e]/60 px-4 py-2 text-xs tracking-widest text-[#9a9da6] uppercase transition-all hover:bg-[#2d3a2e]/80"
+                            className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2 text-xs tracking-widest text-white/60 uppercase transition-all hover:bg-white/10"
                           >
                             Cancel
                           </button>
                           <button
                             onClick={saveEdit}
-                            className="rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-4 py-2 text-xs tracking-widest text-[#c5b9a8] uppercase transition-all hover:bg-[#8a9a5b]/30"
+                            className="rounded-lg border border-white/30 bg-white/20 px-4 py-2 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/20"
                           >
                             Save
                           </button>
@@ -278,15 +268,15 @@ export default function KnowledgeBasePage() {
                           onClick={() => setExpandedId(isExpanded ? null : note.id)}
                         >
                           <div className="flex items-start justify-between mb-2">
-                            <h3 className="text-[14px] font-medium text-[#e8e5e0]">
+                            <h3 className="text-[14px] font-medium text-white">
                               {note.title}
                             </h3>
-                            <svg className={`h-4 w-4 text-[#9a9da6]/40 transition-transform shrink-0 ml-4 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <svg className={`h-4 w-4 text-white/25 transition-transform shrink-0 ml-4 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                             </svg>
                           </div>
                           {!isExpanded && note.content && (
-                            <p className="text-xs leading-relaxed text-[#9a9da6] mb-3 line-clamp-2">
+                            <p className="text-xs leading-relaxed text-white/60 mb-3 line-clamp-2">
                               {note.content}
                             </p>
                           )}
@@ -294,14 +284,14 @@ export default function KnowledgeBasePage() {
 
                         {isExpanded && (
                           <div className="mt-3 mb-4">
-                            <p className="text-sm leading-relaxed text-[#e8e5e0]/80 whitespace-pre-wrap">
+                            <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">
                               {note.content || "No content yet."}
                             </p>
                           </div>
                         )}
 
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] text-[#9a9da6]/50">
+                          <p className="text-[10px] text-white/30">
                             by {note.creatorName}
                             {note.updatedByName && note.updatedByName !== note.creatorName && (
                               <> · edited by {note.updatedByName}</>
@@ -311,7 +301,7 @@ export default function KnowledgeBasePage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => startEdit(note)}
-                              className="text-[#9a9da6]/30 hover:text-[#8a9a5b] transition-colors"
+                              className="text-white/20 hover:text-white transition-colors"
                               title="Edit note"
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -321,7 +311,7 @@ export default function KnowledgeBasePage() {
                             {note.creatorEmail === currentUserEmail && (
                               <button
                                 onClick={() => deleteNote(note.id)}
-                                className="text-[#9a9da6]/30 hover:text-[#e8e5e0] transition-colors"
+                                className="text-white/20 hover:text-white transition-colors"
                                 title="Delete note"
                               >
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import NavHeader from "../components/nav-header";
 
 interface Tool {
   id: string;
@@ -117,23 +117,13 @@ export default function ToolsPage() {
 
       {/* Content */}
       <div className="relative z-10">
-        <header className="flex items-center justify-between px-8 py-4">
-          <Link href="/" className="text-xs tracking-[0.3em] text-[#c5b9a8] uppercase font-medium hover:text-[#e8e5e0] transition-colors">
-            Arena Physica
-          </Link>
-          <Link
-            href="/"
-            className="text-xs tracking-widest text-[#9a9da6] uppercase hover:text-[#e8e5e0] transition-colors"
-          >
-            Back to Dashboard
-          </Link>
-        </header>
+        <NavHeader />
 
         <div className="px-8 py-10">
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2
-                className="text-3xl text-[#e8e5e0]"
+                className="text-3xl text-white"
                 style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
               >
                 Tool Library
@@ -141,7 +131,7 @@ export default function ToolsPage() {
             </div>
             <button
               onClick={() => setShowCreate(!showCreate)}
-              className="rounded-lg border border-[#8a9a5b]/20 bg-[#2d3a2e]/70 px-5 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:border-[#8a9a5b]/40 hover:bg-[#2d3a2e]/85"
+              className="rounded-lg border border-white/20 bg-white/[0.07] px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:border-white/30 hover:bg-white/10"
             >
               {showCreate ? "Cancel" : "+ New Tool"}
             </button>
@@ -149,8 +139,8 @@ export default function ToolsPage() {
 
           {/* Create form */}
           {showCreate && (
-            <div className="mb-8 rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-[#a09570] uppercase">
+            <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
+              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Create a new tool
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -159,15 +149,15 @@ export default function ToolsPage() {
                   placeholder="Tool name"
                   value={newTool.name}
                   onChange={(e) => setNewTool((p) => ({ ...p, name: e.target.value }))}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20"
                 />
                 <select
                   value={newTool.category}
                   onChange={(e) => setNewTool((p) => ({ ...p, category: e.target.value }))}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white backdrop-blur-xl outline-none focus:border-white/20"
                 >
                   {categories.filter((c) => c !== "All").map((c) => (
-                    <option key={c} value={c} className="bg-[#2d3a2e] text-[#e8e5e0]">
+                    <option key={c} value={c} className="bg-black/80 text-white">
                       {c}
                     </option>
                   ))}
@@ -177,28 +167,28 @@ export default function ToolsPage() {
                   placeholder="Description"
                   value={newTool.description}
                   onChange={(e) => setNewTool((p) => ({ ...p, description: e.target.value }))}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35 sm:col-span-2"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20 sm:col-span-2"
                 />
                 <input
                   type="text"
                   placeholder="URL (optional)"
                   value={newTool.url}
                   onChange={(e) => setNewTool((p) => ({ ...p, url: e.target.value }))}
-                  className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none focus:border-[#8a9a5b]/35"
+                  className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/20"
                 />
                 <label className="flex items-center gap-3 cursor-pointer">
                   <button
                     type="button"
                     onClick={() => setNewTool((p) => ({ ...p, private: !p.private }))}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${newTool.private ? "bg-[#8a9a5b]/40" : "bg-[#9a9da6]/20"}`}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${newTool.private ? "bg-white/20" : "bg-white/10"}`}
                   >
-                    <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-[#e8e5e0] transition-transform ${newTool.private ? "translate-x-4" : ""}`} />
+                    <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${newTool.private ? "translate-x-4" : ""}`} />
                   </button>
-                  <span className="text-[11px] tracking-widest text-[#9a9da6] uppercase">Private (only me)</span>
+                  <span className="text-[11px] tracking-widest text-white/60 uppercase">Private (only me)</span>
                 </label>
                 <button
                   onClick={createTool}
-                  className="rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-5 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:bg-[#8a9a5b]/30"
+                  className="rounded-lg border border-white/30 bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:bg-white/20"
                 >
                   Create Tool
                 </button>
@@ -214,8 +204,8 @@ export default function ToolsPage() {
                 onClick={() => setFilter(cat)}
                 className={`rounded-lg px-4 py-1.5 text-[11px] tracking-widest uppercase transition-all ${
                   filter === cat
-                    ? "bg-[#8a9a5b]/20 text-[#c5b9a8] border border-[#8a9a5b]/30"
-                    : "bg-[#2d3a2e]/40 text-[#9a9da6] border border-[#9a9da6]/15 hover:bg-[#2d3a2e]/60"
+                    ? "bg-white/20 text-white/80 border border-white/30"
+                    : "bg-white/[0.07] text-white/60 border border-white/10 hover:bg-white/[0.07]"
                 }`}
               >
                 {cat}
@@ -227,10 +217,10 @@ export default function ToolsPage() {
           {loading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/60 p-5 backdrop-blur-xl animate-pulse">
-                  <div className="h-4 w-32 rounded bg-[#8a9a5b]/10 mb-3" />
-                  <div className="h-3 w-full rounded bg-[#8a9a5b]/5 mb-2" />
-                  <div className="h-3 w-2/3 rounded bg-[#8a9a5b]/5" />
+                <div key={i} className="rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl animate-pulse">
+                  <div className="h-4 w-32 rounded bg-white/10 mb-3" />
+                  <div className="h-3 w-full rounded bg-white/[0.05] mb-2" />
+                  <div className="h-3 w-2/3 rounded bg-white/[0.05]" />
                 </div>
               ))}
             </div>
@@ -239,31 +229,31 @@ export default function ToolsPage() {
               {filtered.map((tool) => (
                 <div
                   key={tool.id}
-                  className="flex flex-col justify-between rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 p-5 backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35 hover:bg-[#2d3a2e]/85"
+                  className="flex flex-col justify-between rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/10"
                 >
                   <div>
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-[14px] font-medium text-[#e8e5e0]">
+                      <h3 className="text-[14px] font-medium text-white">
                         {tool.name}
                       </h3>
                       <div className="ml-2 flex items-center gap-1.5">
                         {tool.private && (
-                          <span className="flex items-center gap-1 whitespace-nowrap rounded bg-[#9a9da6]/10 px-2 py-0.5 text-[9px] tracking-wider text-[#9a9da6] uppercase">
+                          <span className="flex items-center gap-1 whitespace-nowrap rounded bg-white/[0.07] px-2 py-0.5 text-[9px] tracking-wider text-white/60 uppercase">
                             <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                             </svg>
                             Private
                           </span>
                         )}
-                        <span className="whitespace-nowrap rounded bg-[#8a9a5b]/10 px-2 py-0.5 text-[9px] tracking-wider text-[#a09570] uppercase">
+                        <span className="whitespace-nowrap rounded bg-white/10 px-2 py-0.5 text-[9px] tracking-wider text-white/50 uppercase">
                           {tool.category}
                         </span>
                       </div>
                     </div>
-                    <p className="text-xs leading-relaxed text-[#9a9da6] mb-3">
+                    <p className="text-xs leading-relaxed text-white/60 mb-3">
                       {tool.description}
                     </p>
-                    <p className="text-[10px] text-[#9a9da6]/50">
+                    <p className="text-[10px] text-white/30">
                       by {tool.creator}
                     </p>
                   </div>
@@ -272,8 +262,8 @@ export default function ToolsPage() {
                       onClick={() => toggleTool(tool.id)}
                       className={`rounded-lg px-4 py-1.5 text-[10px] tracking-widest uppercase transition-all ${
                         enabled.has(tool.id)
-                          ? "bg-[#8a9a5b]/20 text-[#c5b9a8] border border-[#8a9a5b]/30"
-                          : "bg-[#2d3a2e]/40 text-[#9a9da6] border border-[#9a9da6]/15 hover:bg-[#2d3a2e]/60"
+                          ? "bg-white/20 text-white/80 border border-white/30"
+                          : "bg-white/[0.07] text-white/60 border border-white/10 hover:bg-white/[0.07]"
                       }`}
                     >
                       {enabled.has(tool.id) ? "Enabled" : "Enable"}
@@ -281,7 +271,7 @@ export default function ToolsPage() {
                     {tool.creatorEmail === currentUserEmail && (
                       <button
                         onClick={() => deleteTool(tool.id)}
-                        className="text-[#9a9da6]/30 hover:text-[#e8e5e0] transition-colors"
+                        className="text-white/20 hover:text-white transition-colors"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
