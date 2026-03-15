@@ -1,19 +1,14 @@
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import SignInPage from "./signin/page";
+import Dashboard from "./dashboard";
 
 export default async function Home() {
   const session = await auth();
 
   if (session) {
-    // Logged in — show the actual app
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-black px-8">
-        <img src="/logo.svg" alt="Arena Physica" className="w-full max-w-3xl" />
-      </div>
-    );
+    const firstName = session.user?.name?.split(" ")[0] || "Operator";
+    return <Dashboard firstName={firstName} />;
   }
 
-  // Not logged in — show login page at the root URL
   return <SignInPage />;
 }
