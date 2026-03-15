@@ -59,7 +59,6 @@ export default function ToolsPage() {
       body: JSON.stringify(newTool),
     });
     const { id } = await res.json();
-    // Refresh list
     const data = await fetch("/api/tools").then((r) => r.json());
     setTools(data.tools || []);
     setEnabled(new Set(data.enabledIds || []));
@@ -88,6 +87,7 @@ export default function ToolsPage() {
     <div className="relative min-h-screen overflow-hidden">
       {/* Gradient background */}
       <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
+      <div className="fixed inset-0 bg-black/30" />
       <div
         className="fixed inset-0"
         style={{
@@ -116,10 +116,10 @@ export default function ToolsPage() {
 
       {/* Content */}
       <div className="relative z-10">
-        <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 backdrop-blur-md bg-white/[0.03]">
-          <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
+        <header className="flex items-center justify-between px-8 py-4">
+          <Link href="/" className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium hover:text-white/70 transition-colors">
             Arena Physica
-          </h1>
+          </Link>
           <Link
             href="/"
             className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
@@ -128,7 +128,7 @@ export default function ToolsPage() {
           </Link>
         </header>
 
-        <div className="mx-auto max-w-5xl px-8 py-10">
+        <div className="px-8 py-10">
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2
@@ -137,13 +137,10 @@ export default function ToolsPage() {
               >
                 Tool Library
               </h2>
-              <p className="mt-2 text-sm text-white/40">
-                Browse tools shared by the team. Enable the ones you want on your dashboard.
-              </p>
             </div>
             <button
               onClick={() => setShowCreate(!showCreate)}
-              className="rounded border border-white/[0.08] bg-[#2a3040]/90 px-5 py-2.5 text-xs tracking-widest text-white/70 uppercase backdrop-blur-md transition-all hover:border-white/20 hover:bg-[#303848]/95"
+              className="rounded-lg border border-white/[0.12] bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/70 uppercase backdrop-blur-xl transition-all hover:border-white/25 hover:bg-white/[0.25]"
             >
               {showCreate ? "Cancel" : "+ New Tool"}
             </button>
@@ -151,7 +148,7 @@ export default function ToolsPage() {
 
           {/* Create form */}
           {showCreate && (
-            <div className="mb-8 rounded border border-white/[0.08] bg-[#2a3040]/90 p-6 backdrop-blur-md">
+            <div className="mb-8 rounded-lg border border-white/[0.12] bg-white/20 p-6 backdrop-blur-xl">
               <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 Create a new tool
               </h3>
@@ -161,12 +158,12 @@ export default function ToolsPage() {
                   placeholder="Tool name"
                   value={newTool.name}
                   onChange={(e) => setNewTool((p) => ({ ...p, name: e.target.value }))}
-                  className="rounded border border-white/[0.08] bg-[#2a3040]/90 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-md outline-none focus:border-white/20"
+                  className="rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/25"
                 />
                 <select
                   value={newTool.category}
                   onChange={(e) => setNewTool((p) => ({ ...p, category: e.target.value }))}
-                  className="rounded border border-white/[0.08] bg-[#2a3040]/90 px-4 py-2.5 text-sm text-white/90 backdrop-blur-md outline-none focus:border-white/20"
+                  className="rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 backdrop-blur-xl outline-none focus:border-white/25"
                 >
                   {categories.filter((c) => c !== "All").map((c) => (
                     <option key={c} value={c} className="bg-[#2a3040] text-white">
@@ -179,18 +176,18 @@ export default function ToolsPage() {
                   placeholder="Description"
                   value={newTool.description}
                   onChange={(e) => setNewTool((p) => ({ ...p, description: e.target.value }))}
-                  className="rounded border border-white/[0.08] bg-[#2a3040]/90 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-md outline-none focus:border-white/20 sm:col-span-2"
+                  className="rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/25 sm:col-span-2"
                 />
                 <input
                   type="text"
                   placeholder="URL (optional)"
                   value={newTool.url}
                   onChange={(e) => setNewTool((p) => ({ ...p, url: e.target.value }))}
-                  className="rounded border border-white/[0.08] bg-[#2a3040]/90 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-md outline-none focus:border-white/20"
+                  className="rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-xl outline-none focus:border-white/25"
                 />
                 <button
                   onClick={createTool}
-                  className="rounded border border-white/[0.08] bg-white/10 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-md transition-all hover:bg-white/15"
+                  className="rounded-lg border border-white/[0.12] bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:bg-white/25"
                 >
                   Create Tool
                 </button>
@@ -204,10 +201,10 @@ export default function ToolsPage() {
               <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={`rounded px-4 py-1.5 text-[11px] tracking-widest uppercase transition-all ${
+                className={`rounded-lg px-4 py-1.5 text-[11px] tracking-widest uppercase transition-all ${
                   filter === cat
-                    ? "bg-white/15 text-white/80 border border-white/20"
-                    : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06]"
+                    ? "bg-white/20 text-white/80 border border-white/25"
+                    : "bg-white/[0.06] text-white/40 border border-white/[0.1] hover:bg-white/[0.1]"
                 }`}
               >
                 {cat}
@@ -219,7 +216,7 @@ export default function ToolsPage() {
           {loading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="rounded border border-white/[0.06] bg-[#2a3040]/90 p-5 backdrop-blur-md animate-pulse">
+                <div key={i} className="rounded-lg border border-white/[0.1] bg-white/20 p-5 backdrop-blur-xl animate-pulse">
                   <div className="h-4 w-32 rounded bg-white/10 mb-3" />
                   <div className="h-3 w-full rounded bg-white/[0.06] mb-2" />
                   <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
@@ -231,31 +228,31 @@ export default function ToolsPage() {
               {filtered.map((tool) => (
                 <div
                   key={tool.id}
-                  className="flex flex-col justify-between rounded border border-white/[0.08] bg-[#2a3040]/90 p-5 backdrop-blur-md transition-all hover:border-white/20"
+                  className="flex flex-col justify-between rounded-lg border border-white/[0.12] bg-white/20 p-5 backdrop-blur-xl transition-all hover:border-white/25"
                 >
                   <div>
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-[13px] font-semibold text-white/90">
+                      <h3 className="text-[14px] font-medium text-white/90">
                         {tool.name}
                       </h3>
-                      <span className="ml-2 whitespace-nowrap rounded bg-white/[0.06] px-2 py-0.5 text-[9px] tracking-wider text-white/30 uppercase">
+                      <span className="ml-2 whitespace-nowrap rounded bg-white/[0.08] px-2 py-0.5 text-[9px] tracking-wider text-white/40 uppercase">
                         {tool.category}
                       </span>
                     </div>
                     <p className="text-xs leading-relaxed text-white/40 mb-3">
                       {tool.description}
                     </p>
-                    <p className="text-[10px] text-white/20">
+                    <p className="text-[10px] text-white/25">
                       by {tool.creator}
                     </p>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <button
                       onClick={() => toggleTool(tool.id)}
-                      className={`rounded px-4 py-1.5 text-[10px] tracking-widest uppercase transition-all ${
+                      className={`rounded-lg px-4 py-1.5 text-[10px] tracking-widest uppercase transition-all ${
                         enabled.has(tool.id)
-                          ? "bg-white/15 text-white/80 border border-white/20"
-                          : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06]"
+                          ? "bg-white/20 text-white/80 border border-white/25"
+                          : "bg-white/[0.06] text-white/40 border border-white/[0.1] hover:bg-white/[0.1]"
                       }`}
                     >
                       {enabled.has(tool.id) ? "Enabled" : "Enable"}

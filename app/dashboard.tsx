@@ -109,9 +109,9 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       <div className="relative z-10">
         {/* Header */}
         <header className="flex items-center justify-between px-8 py-4">
-          <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
+          <Link href="/" className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium hover:text-white/70 transition-colors">
             Arena Physica
-          </h1>
+          </Link>
           <button
             onClick={() => signOut()}
             className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
