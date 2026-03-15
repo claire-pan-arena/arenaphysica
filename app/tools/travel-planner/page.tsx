@@ -68,6 +68,7 @@ interface DayScheduleItem {
   event: string;
   type: "flight" | "meeting" | "travel" | "hotel" | "note";
   detail?: string;
+  location?: string;
 }
 
 interface DaySchedule {
@@ -459,10 +460,20 @@ export default function TravelPlannerPage() {
                                  item.type === "hotel" ? "hotel" :
                                  ""}
                               </span>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <span className="text-[11px] text-white/50">{item.event}</span>
                                 {item.detail && <span className="text-[10px] text-white/20 ml-1.5">{item.detail}</span>}
                               </div>
+                              {item.location && (
+                                <a href={item.location} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] text-white/20 hover:text-white/40 transition-colors shrink-0 underline underline-offset-2 decoration-white/10">
+                                  {item.location.includes("maps.google") ? "Map" :
+                                   item.location.includes("zoom.us") ? "Zoom" :
+                                   item.location.includes("meet.google") ? "Meet" :
+                                   item.location.includes("teams.microsoft") ? "Teams" :
+                                   "Link"}
+                                </a>
+                              )}
                             </div>
                           ))}
                         </div>
