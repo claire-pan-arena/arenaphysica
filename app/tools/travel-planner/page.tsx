@@ -125,8 +125,11 @@ export default function TravelPlannerPage() {
       }).catch(() => {});
     fetch("/api/ai/travel-plan")
       .then((r) => r.json())
-      .then((data) => setSavedTrips(data.plans || []))
-      .catch(() => {});
+      .then((data) => {
+        console.log("[travel-planner] Loaded plans:", data.plans?.length || 0, data);
+        setSavedTrips(data.plans || []);
+      })
+      .catch((err) => console.error("[travel-planner] Failed to load plans:", err));
   }, []);
 
   const savePreferences = async () => {

@@ -166,11 +166,13 @@ Today: ${new Date().toISOString().split("T")[0]}`;
 
   const id = `tp-${Date.now()}`;
   const resultStr = itinerary ? JSON.stringify(itinerary) : jsonStr;
+  console.log("[travel-plan] Saving plan", id, "for", session.user.email, "result length:", resultStr.length, "parsed:", !!itinerary);
   try {
     await sql`
       INSERT INTO travel_plans (id, request, result, creator_email, creator_name)
       VALUES (${id}, ${travelRequest.trim()}, ${resultStr}, ${session.user.email}, ${session.user.name || "Unknown"})
     `;
+    console.log("[travel-plan] Insert succeeded for", id);
   } catch (err) {
     console.error("[travel-plan] DB insert failed:", err);
   }
@@ -190,7 +192,13 @@ export async function GET() {
   const sql = getDb();
   await initDb();
 
-  const plans = await sql`SELECT * FROM travel_plans WHERE creator_email = ${session.user.email} ORDER BY created_at DESC LIMIT 10`;
+  let plans: any[] = [];
+  try {
+    plans = await sql`SELECT * FROM travel_plans WHERE creator_email = ${session.user.email} ORDER BY created_at DESC LIMIT 10`;
+    console.log("[travel-plan] GET found", plans.length, "plans for", session.user.email);
+  } catch (err) {
+    console.error("[travel-plan] GET query failed:", err);
+  }
 
   return NextResponse.json({
     plans: plans.map((p: any) => {
