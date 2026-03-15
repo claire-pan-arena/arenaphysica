@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 interface ActionItem {
   id: string;
@@ -258,11 +258,12 @@ interface TodosProps {
   modalEvent?: { title: string; date: string } | null;
   onModalClose?: () => void;
   enabledTools?: EnabledTool[];
+  showAddModal?: boolean;
+  onAddModalClose?: () => void;
 }
 
-export default function Todos({ events, modalEvent, onModalClose, enabledTools = [] }: TodosProps) {
+export default function Todos({ events, modalEvent, onModalClose, enabledTools = [], showAddModal, onAddModalClose }: TodosProps) {
   const [items, setItems] = useState<ActionItem[]>([]);
-  const [newItem, setNewItem] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -285,24 +286,6 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
 
   const manualItems = items.filter((t) => !t.dismissed && (!t.suggested || acceptedIds.has(t.id)));
 
-  const addItem = useCallback(() => {
-    if (!newItem.trim()) return;
-    setItems((prev) => [
-      ...prev,
-      {
-        id: `manual-${Date.now()}`,
-        text: newItem.trim(),
-        done: false,
-        priority: "P2",
-        deadline: "",
-        notes: "",
-        suggested: false,
-        dismissed: false,
-      },
-    ]);
-    setNewItem("");
-  }, [newItem]);
-
   const createFromModal = (data: { text: string; priority: "P0" | "P1" | "P2" | "P3"; deadline: string; notes: string }) => {
     setItems((prev) => [
       ...prev,
@@ -318,6 +301,7 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
       },
     ]);
     onModalClose?.();
+    onAddModalClose?.();
   };
 
   const toggleItem = (id: string) => {
@@ -351,7 +335,7 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Modal */}
+      {/* Modal from calendar event */}
       {modalEvent && (
         <CreateActionModal
           eventTitle={modalEvent.title}
@@ -361,28 +345,15 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
         />
       )}
 
-      {/* Add input */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          addItem();
-        }}
-        className="flex gap-2"
-      >
-        <input
-          type="text"
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          placeholder="Add an action item..."
-          className="flex-1 rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 backdrop-blur-xl outline-none transition-colors focus:border-white/20"
+      {/* Manual add modal */}
+      {showAddModal && (
+        <CreateActionModal
+          eventTitle=""
+          eventDate=""
+          onClose={() => onAddModalClose?.()}
+          onCreate={createFromModal}
         />
-        <button
-          type="submit"
-          className="rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:border-white/20 hover:bg-white/10"
-        >
-          Add
-        </button>
-      </form>
+      )}
 
       {/* Suggested from calendar */}
       {visibleSuggestions.length > 0 && (

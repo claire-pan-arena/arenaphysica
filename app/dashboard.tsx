@@ -62,6 +62,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [modalEvent, setModalEvent] = useState<{ title: string; date: string } | null>(null);
+  const [showAddAction, setShowAddAction] = useState(false);
   const [calFilter, setCalFilter] = useState<"all" | "external">("all");
   const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
   const [showAllTools, setShowAllTools] = useState(false);
@@ -179,10 +180,21 @@ export default function Dashboard({ firstName }: { firstName: string }) {
 
               {/* Action Items */}
               <div className="mt-10">
-                <h2 className="mb-6 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                  Action Items
-                </h2>
-                <Todos events={events} modalEvent={modalEvent} onModalClose={() => setModalEvent(null)} enabledTools={enabledTools} />
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-[11px] font-medium tracking-widest text-white/50 uppercase">
+                    Action Items
+                  </h2>
+                  <button
+                    onClick={() => setShowAddAction(true)}
+                    className="p-1 text-white/30 hover:text-white transition-colors"
+                    title="Add action item"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                </div>
+                <Todos events={events} modalEvent={modalEvent} onModalClose={() => setModalEvent(null)} enabledTools={enabledTools} showAddModal={showAddAction} onAddModalClose={() => setShowAddAction(false)} />
               </div>
             </div>
 
