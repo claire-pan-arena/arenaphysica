@@ -4,23 +4,56 @@ import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 const bootSequence = [
-  { text: "SYNCING FIELD DEPLOYMENT MANIFEST........", delay: 0 },
-  { text: "ARMING ONSITE TOOLKIT V.4.2........", delay: 600 },
-  { text: "UPLINK TO STRATEGIST RELAY LOCKED", delay: 1200 },
-  { text: "STAGING GROUND OPS — ALL CLEAR", delay: 1800 },
-  { text: "GROUND CONTROL ONLINE. READY FOR DISPATCH.", delay: 2400 },
+  "ESTABLISHING SECURE FIELD UPLINK........",
+  "PROVISIONING DEPLOYMENT TOOLKIT........",
+  "LOADING STRATEGIST RELAY PROTOCOLS........",
+  "CALIBRATING ONSITE GROUND OPS........",
+  "STANDING BY FOR DISPATCH........",
 ];
 
+function TypedLine({ text, onDone }: { text: string; onDone?: () => void }) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(interval);
+        setDone(true);
+        onDone?.();
+      }
+    }, 18);
+    return () => clearInterval(interval);
+  }, [text, onDone]);
+
+  return (
+    <span>
+      {displayed}
+      {!done && <span className="animate-pulse">|</span>}
+    </span>
+  );
+}
+
 export default function SignIn() {
-  const [visibleLines, setVisibleLines] = useState<number>(0);
+  const [activeLine, setActiveLine] = useState(0);
+  const [startedTyping, setStartedTyping] = useState(false);
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
-    bootSequence.forEach((line, i) => {
-      setTimeout(() => setVisibleLines(i + 1), line.delay);
-    });
-    setTimeout(() => setShowContent(true), 3200);
+    const t = setTimeout(() => setStartedTyping(true), 300);
+    return () => clearTimeout(t);
   }, []);
+
+  const handleLineDone = (i: number) => {
+    if (i < bootSequence.length - 1) {
+      setTimeout(() => setActiveLine(i + 1), 200);
+    } else {
+      setTimeout(() => setShowContent(true), 400);
+    }
+  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
@@ -68,19 +101,22 @@ export default function SignIn() {
 
       {/* Boot sequence - bottom left */}
       <div className="absolute bottom-8 left-8 z-20 font-mono text-[10px] leading-5 md:text-xs md:leading-6">
-        {bootSequence.slice(0, visibleLines).map((line, i) => (
-          <p
-            key={i}
-            className={`transition-opacity duration-300 ${
-              i === visibleLines - 1 ? "text-white/60" : "text-white/25"
-            }`}
-          >
-            <span className="text-white/40">&gt;</span> {line.text}
-            {i === visibleLines - 1 && (
-              <span className="animate-pulse">|</span>
-            )}
-          </p>
-        ))}
+        {startedTyping &&
+          bootSequence.slice(0, activeLine + 1).map((line, i) => (
+            <p
+              key={i}
+              className={`${
+                i < activeLine ? "text-white/25" : "text-white/60"
+              }`}
+            >
+              <span className="text-white/40">&gt; </span>
+              {i === activeLine ? (
+                <TypedLine text={line} onDone={() => handleLineDone(i)} />
+              ) : (
+                line
+              )}
+            </p>
+          ))}
       </div>
 
       {/* Main content - fades in after boot */}
