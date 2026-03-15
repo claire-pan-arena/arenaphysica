@@ -17,91 +17,24 @@ interface CalendarEvent {
   attendees: number;
 }
 
+const CUSTOMERS = /anduril|bausch|b\+l|b&l|mercedes|amd/i;
+
 function generateSuggestions(events: CalendarEvent[]): Todo[] {
   const suggestions: Todo[] = [];
 
   for (const event of events) {
     const title = event.title;
 
-    // Weekly syncs, standups, check-ins
-    if (/sync|standup|check.?in|1.?on.?1|one.?on.?one|weekly|recurring/i.test(title)) {
-      suggestions.push({
-        id: `sug-agenda-${title}`,
-        text: `Organize agenda for ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
+    // Only suggest for customer-related meetings
+    if (!CUSTOMERS.test(title)) continue;
 
-    // Demos, presentations
-    if (/demo|presentation|pitch|showcase/i.test(title)) {
-      suggestions.push({
-        id: `sug-prep-${title}`,
-        text: `Prepare materials for ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
-
-    // Reviews
-    if (/review|retro|debrief|postmortem/i.test(title)) {
-      suggestions.push({
-        id: `sug-notes-${title}`,
-        text: `Compile notes ahead of ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
-
-    // Customer or external meetings
-    if (/customer|client|partner|external|vendor/i.test(title) || event.attendees > 3) {
-      suggestions.push({
-        id: `sug-brief-${title}`,
-        text: `Brief team before ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
-
-    // Interviews
-    if (/interview|screening|candidate/i.test(title)) {
-      suggestions.push({
-        id: `sug-review-${title}`,
-        text: `Review candidate profile for ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
-
-    // Planning, strategy
-    if (/planning|strategy|roadmap|kickoff/i.test(title)) {
-      suggestions.push({
-        id: `sug-prep-${title}`,
-        text: `Draft talking points for ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
-
-    // Generic meetings with multiple attendees
-    if (
-      event.attendees >= 2 &&
-      !suggestions.some((s) => s.id.includes(title))
-    ) {
-      suggestions.push({
-        id: `sug-generic-${title}`,
-        text: `Prepare for ${title}`,
-        done: false,
-        suggested: true,
-        dismissed: false,
-      });
-    }
+    suggestions.push({
+      id: `sug-${title}`,
+      text: `Prepare for ${title}`,
+      done: false,
+      suggested: true,
+      dismissed: false,
+    });
   }
 
   // Deduplicate by id
