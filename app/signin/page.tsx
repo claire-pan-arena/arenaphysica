@@ -4,19 +4,11 @@ import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 const bootSequence = [
-  { text: "BOOTING GROUND_CONTROL V.1.0", delay: 0 },
-  { text: "LOADING ARENA PHYSICA SYSTEMS........", delay: 400 },
-  { text: "MOUNTING ENCRYPTED PARTITION........", delay: 900 },
-  { text: "SPAWNING DAEMON POOL", delay: 1400 },
-  { text: "INITIALIZING RF DESIGN CANVAS...", delay: 1800 },
-  { text: "CONNECTING TO EMBEDDED SYSTEMS........", delay: 2300 },
-  { text: "CALIBRATING SENSOR ARRAYS...", delay: 2800 },
-  { text: "LOADING HARDWARE MODELS........", delay: 3200 },
-  { text: "VERIFYING FIRMWARE SIGNATURES...", delay: 3600 },
-  { text: "ESTABLISHING SECURE UPLINK........", delay: 4000 },
-  { text: "SYNCHRONIZING DESIGN STATE...", delay: 4400 },
-  { text: "ALL SYSTEMS NOMINAL", delay: 4800 },
-  { text: "AWAITING CREDENTIALS", delay: 5200 },
+  { text: "SYNCING FIELD DEPLOYMENT MANIFEST........", delay: 0 },
+  { text: "ARMING ONSITE TOOLKIT V.4.2........", delay: 600 },
+  { text: "UPLINK TO STRATEGIST RELAY LOCKED", delay: 1200 },
+  { text: "STAGING GROUND OPS — ALL CLEAR", delay: 1800 },
+  { text: "GROUND CONTROL ONLINE. READY FOR DISPATCH.", delay: 2400 },
 ];
 
 export default function SignIn() {
@@ -27,7 +19,7 @@ export default function SignIn() {
     bootSequence.forEach((line, i) => {
       setTimeout(() => setVisibleLines(i + 1), line.delay);
     });
-    setTimeout(() => setShowContent(true), 5800);
+    setTimeout(() => setShowContent(true), 3200);
   }, []);
 
   return (
@@ -44,24 +36,12 @@ export default function SignIn() {
         }}
       />
 
-      {/* Large planetary arc at the bottom */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[55%]">
-        <div
-          className="h-[900px] w-[900px] rounded-full md:h-[1200px] md:w-[1200px]"
-          style={{
-            background:
-              "radial-gradient(circle at 50% 30%, #6b7b6a 0%, #3a4a3a 40%, #1a2a1a 70%, transparent 100%)",
-            boxShadow: "0 -60px 180px rgba(140,160,180,0.3)",
-          }}
-        />
-      </div>
-
-      {/* Light flare */}
+      {/* Subtle light flare */}
       <div
-        className="absolute top-[25%] left-1/2 -translate-x-1/2 h-96 w-96"
+        className="absolute top-[30%] left-1/2 -translate-x-1/2 h-[600px] w-[600px]"
         style={{
           background:
-            "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
+            "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 60%)",
         }}
       />
 
