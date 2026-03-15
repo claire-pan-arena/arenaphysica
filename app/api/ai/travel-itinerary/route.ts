@@ -108,18 +108,18 @@ Return ONLY a valid JSON object — no other text, no markdown, no explanation. 
     {
       "date": "Monday, March 17, 2026",
       "items": [
-        {"time": "5:30am – 6:30am", "event": "Leave for JFK", "type": "travel", "detail": "Allow 1hr for security"},
-        {"time": "8:00am – 11:30am", "event": "DL1234 JFK → LAX", "type": "flight", "detail": "Arrive 11:30am PT"},
-        {"time": "12:00pm – 12:45pm", "event": "Drive LAX → Irvine", "type": "travel", "detail": "45 min via I-405"},
-        {"time": "1:00pm – 3:00pm", "event": "Anduril Engineering Sync", "type": "meeting", "detail": "Irvine, CA"},
-        {"time": "5:00pm", "event": "Check in Marriott Irvine", "type": "hotel"}
+        {"time": "5:30am – 6:30am ET", "event": "Leave for JFK", "type": "travel", "detail": "Allow 1hr for security"},
+        {"time": "8:00am ET – 11:30am PT", "event": "DL1234 JFK → LAX", "type": "flight"},
+        {"time": "12:00pm – 12:45pm PT", "event": "Drive LAX → Irvine", "type": "travel", "detail": "45 min via I-405"},
+        {"time": "1:00pm – 3:00pm PT", "event": "Anduril Engineering Sync", "type": "meeting", "detail": "Irvine, CA"},
+        {"time": "5:00pm PT", "event": "Check in Marriott Irvine", "type": "hotel"}
       ]
     },
     {
       "date": "Wednesday, March 19, 2026",
       "items": [
-        {"time": "3:00pm – 3:50pm", "event": "Drive to LAX", "type": "travel", "detail": "50 min with rush hour traffic"},
-        {"time": "6:00pm – 2:30am+1", "event": "DL5678 LAX → JFK", "type": "flight"}
+        {"time": "3:00pm – 3:50pm PT", "event": "Drive to LAX", "type": "travel", "detail": "50 min with rush hour traffic"},
+        {"time": "6:00pm PT – 2:30am+1 ET", "event": "DL5678 LAX → JFK", "type": "flight"}
       ]
     }
   ],
@@ -137,7 +137,7 @@ Rules:
 - Account for travel time, traffic, check-in — make sure they arrive on time
 - flights_out_note: distance/drive time from airport to meeting
 - flights_back_note: when to leave meeting to catch flight
-- daily_schedule: A chronological day-by-day breakdown covering EVERY day of travel. Each day lists all events in order: when to leave for airport, flight times, drive times between airport and meeting locations, meetings, hotel check-in/check-out. Type must be one of: "flight", "meeting", "travel", "hotel", "note". The "time" field MUST include start AND end times in format "8:00am – 11:30am" (use en-dash). Only omit end time for instantaneous events like hotel check-in. Include travel buffer times. This is the user's actual minute-by-minute plan.
+- daily_schedule: A chronological day-by-day breakdown covering EVERY day of travel. Each day lists all events in order: when to leave for airport, flight times, drive times between airport and meeting locations, meetings, hotel check-in/check-out. Type must be one of: "flight", "meeting", "travel", "hotel", "note". The "time" field MUST include start AND end times in format "8:00am ET – 11:30am PT" (use en-dash). Always include timezone abbreviations (ET, CT, MT, PT, etc). When crossing time zones, show the LOCAL time zone for each — e.g. departure in the origin's timezone, arrival in the destination's timezone. All other events (drives, meetings, hotel) use the local timezone of wherever the user is at that point. Only omit end time for instantaneous events like hotel check-in. Include travel buffer times. This is the user's actual minute-by-minute plan.
 - total_travel_budget MUST equal the sum of all trip total_estimates. Do not generate a different number.
 - If no events require travel, return {"trips": [], "daily_schedule": [], "no_travel_needed": [...], "total_travel_budget": "$0"}
 - Keep it minimal — no fluff${prefsContext ? `

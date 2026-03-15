@@ -84,11 +84,11 @@ Return ONLY a valid JSON object — no other text, no markdown, no explanation. 
   "summary": "Short trip label, e.g. NYC → LA, March 17-19, 2026",
   "timeline": "Brief logistics: e.g. Depart 8am, land 11:30am, 45min drive, arrive meeting 1pm",
   "flights_out": [
-    {"airline":"Delta","flight_code":"DL1234","date":"Tuesday, March 17, 2026","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
+    {"airline":"Delta","flight_code":"DL1234","date":"Tuesday, March 17, 2026","route":"JFK → LAX","depart":"8:00am ET","arrive":"11:30am PT","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
   ],
   "flights_out_note": "LAX is 45 min / 40 miles from Irvine meeting location via I-405. Allow extra 20 min for afternoon traffic.",
   "flights_back": [
-    {"airline":"Delta","flight_code":"DL5678","date":"Thursday, March 19, 2026","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":false}
+    {"airline":"Delta","flight_code":"DL5678","date":"Thursday, March 19, 2026","route":"LAX → JFK","depart":"6:00pm PT","arrive":"2:30am+1 ET","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":false}
   ],
   "flights_back_note": "Meeting ends at 3pm. Irvine to LAX is 50 min with rush hour traffic. Recommend leaving by 4pm for 6pm flight.",
   "hotels": [
@@ -107,6 +107,7 @@ Rules:
 - The first flight in each list is the recommended one. Include 2-3 alternatives that ALSO respect preferences.
 - flights_out_note: one sentence on distance/drive time from arrival airport to meeting location, including traffic considerations
 - flights_back_note: one sentence on when to leave the meeting to make the flight, accounting for traffic
+- All times MUST include timezone abbreviations (ET, CT, MT, PT, etc). Departure time uses origin timezone, arrival time uses destination timezone. e.g. "depart":"8:00am ET","arrive":"11:30am PT"
 - Account for travel time, traffic, check-in — make sure they arrive on time
 - Keep it minimal — no fluff
 - Always return the JSON object, even if you have to make assumptions${prefsContext ? `
