@@ -444,8 +444,8 @@ export default function TravelPlannerPage() {
                         <div className="text-[11px] font-medium text-white/50 mb-1.5">{day.date}</div>
                         <div className="flex flex-col gap-0.5 pl-3 border-l border-white/8">
                           {day.items.map((item, ii) => (
-                            <div key={ii} className="flex items-start gap-2 py-0.5">
-                              <span className="text-[11px] text-white/25 shrink-0 w-16 tabular-nums">{item.time}</span>
+                            <div key={ii} className="flex items-baseline gap-2 py-0.5">
+                              <span className="text-[11px] text-white/25 shrink-0 w-[115px] tabular-nums">{item.time}</span>
                               <span className={`text-[9px] shrink-0 w-10 uppercase tracking-wider ${
                                 item.type === "flight" ? "text-blue-300/40" :
                                 item.type === "meeting" ? "text-white/30" :
