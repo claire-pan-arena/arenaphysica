@@ -109,7 +109,6 @@ export default function TravelPlannerPage() {
   const [refinement, setRefinement] = useState("");
   const [lastRequest, setLastRequest] = useState("");
   const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
-  const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [showAltFlightsOut, setShowAltFlightsOut] = useState(false);
   const [showAltFlightsBack, setShowAltFlightsBack] = useState(false);
   const [showAltHotels, setShowAltHotels] = useState(false);
@@ -645,39 +644,24 @@ export default function TravelPlannerPage() {
               <h4 className="mb-3 text-[9px] tracking-widest text-white/20 uppercase">Past Trips</h4>
               <div className="flex flex-col gap-1">
                 {savedTrips.map((trip) => (
-                  <div key={trip.id} className="rounded-lg transition-all hover:bg-white/[0.02]">
+                  <div key={trip.id} className="rounded-lg transition-all hover:bg-white/[0.02] flex items-center justify-between px-3 py-2">
                     <button
-                      onClick={() => setExpandedTrip(expandedTrip === trip.id ? null : trip.id)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left"
+                      onClick={() => { if (trip.itinerary) { setItinerary(trip.itinerary); setLastRequest(trip.request); } }}
+                      className="text-[12px] text-white/50 truncate min-w-0 text-left hover:text-white/70 transition-colors"
                     >
-                      <span className="text-[12px] text-white/50 truncate min-w-0">{trip.itinerary?.summary || trip.request}</span>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[11px] text-white/15">{new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                        {trip.itinerary?.total_estimate && <span className="text-[11px] text-[#a3b18a]/40">{trip.itinerary.total_estimate}</span>}
-                        <button onClick={(e) => { e.stopPropagation(); setItinerary(trip.itinerary); setLastRequest(trip.request); setExpandedTrip(null); }}
-                          title="Load"
-                          className="p-0.5 text-white/10 hover:text-white/50 transition-colors">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                          </svg>
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id); }}
-                          title="Delete"
-                          className="p-0.5 text-white/10 hover:text-red-400/60 transition-colors">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                        <svg className={`h-3 w-3 text-white/15 transition-transform ${expandedTrip === trip.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                      </div>
+                      {trip.itinerary?.summary || trip.request}
                     </button>
-                    {expandedTrip === trip.id && trip.itinerary && (
-                      <div className="px-3 pb-3 flex flex-col gap-1">
-                        <p className="text-[11px] text-white/20 mb-1">{trip.itinerary.timeline}</p>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] text-white/15">{new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      {trip.itinerary?.total_estimate && <span className="text-[11px] text-[#a3b18a]/40">{trip.itinerary.total_estimate}</span>}
+                      <button onClick={() => deleteTrip(trip.id)}
+                        title="Delete"
+                        className="p-0.5 text-white/10 hover:text-red-400/60 transition-colors">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
