@@ -56,13 +56,8 @@ interface SavedTrip {
 }
 
 const EMPTY_PREFS: TravelPreferences = {
-  preferredAirlines: "",
-  preferredAirports: "",
-  preferredHotels: "",
-  seatPreference: "",
-  timePreference: "",
-  loyaltyPrograms: "",
-  otherNotes: "",
+  preferredAirlines: "", preferredAirports: "", preferredHotels: "",
+  seatPreference: "", timePreference: "", loyaltyPrograms: "", otherNotes: "",
 };
 
 export default function TravelPlannerPage() {
@@ -78,6 +73,9 @@ export default function TravelPlannerPage() {
   const [lastRequest, setLastRequest] = useState("");
   const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
+  const [showAltFlightsOut, setShowAltFlightsOut] = useState(false);
+  const [showAltFlightsBack, setShowAltFlightsBack] = useState(false);
+  const [showAltHotels, setShowAltHotels] = useState(false);
 
   useEffect(() => {
     fetch("/api/travel-preferences")
@@ -85,9 +83,7 @@ export default function TravelPlannerPage() {
       .then((data) => {
         if (data.preferences) { setPrefs(data.preferences); setSavedPrefs(true); }
         else setShowPrefs(true);
-      })
-      .catch(() => {});
-
+      }).catch(() => {});
     fetch("/api/ai/travel-plan")
       .then((r) => r.json())
       .then((data) => setSavedTrips(data.plans || []))
@@ -96,25 +92,18 @@ export default function TravelPlannerPage() {
 
   const savePreferences = async () => {
     setSavingPrefs(true);
-    await fetch("/api/travel-preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(prefs),
-    });
-    setSavingPrefs(false);
-    setSavedPrefs(true);
-    setShowPrefs(false);
+    await fetch("/api/travel-preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(prefs) });
+    setSavingPrefs(false); setSavedPrefs(true); setShowPrefs(false);
   };
 
   const generate = async (refineText?: string) => {
     const isRefine = !!refineText;
     if (!isRefine && !request.trim()) return;
     setGenerating(true);
-    if (!isRefine) { setItinerary(null); setFallback(null); }
+    if (!isRefine) { setItinerary(null); setFallback(null); setShowAltFlightsOut(false); setShowAltFlightsBack(false); setShowAltHotels(false); }
     try {
       const res = await fetch("/api/ai/travel-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           request: isRefine ? lastRequest : request.trim(),
           refine: refineText || undefined,
@@ -122,38 +111,36 @@ export default function TravelPlannerPage() {
         }),
       });
       const data = await res.json();
-      if (data.error) {
-        setFallback(`Error: ${data.error}`);
-      } else if (data.itinerary) {
-        setItinerary(data.itinerary);
-        setFallback(null);
-        if (!isRefine) {
-          setSavedTrips((prev) => [{ id: data.id, request: request.trim(), itinerary: data.itinerary, createdAt: new Date().toISOString() }, ...prev]);
-        } else if (savedTrips.length > 0) {
-          setSavedTrips((prev) => [{ ...prev[0], itinerary: data.itinerary }, ...prev.slice(1)]);
-        }
-      } else if (data.fallback) {
-        setFallback(data.fallback);
-      }
-      if (!isRefine) {
-        setLastRequest(request.trim());
-        setRequest("");
-      }
+      if (data.error) { setFallback(`Error: ${data.error}`); }
+      else if (data.itinerary) {
+        setItinerary(data.itinerary); setFallback(null);
+        if (!isRefine) setSavedTrips((prev) => [{ id: data.id, request: request.trim(), itinerary: data.itinerary, createdAt: new Date().toISOString() }, ...prev]);
+        else if (savedTrips.length > 0) setSavedTrips((prev) => [{ ...prev[0], itinerary: data.itinerary }, ...prev.slice(1)]);
+      } else if (data.fallback) setFallback(data.fallback);
+      if (!isRefine) { setLastRequest(request.trim()); setRequest(""); }
       setRefinement("");
-    } catch {
-      setFallback("Something went wrong. Please try again.");
-    }
+    } catch { setFallback("Something went wrong."); }
     setGenerating(false);
   };
 
-  const prefFields: { key: keyof TravelPreferences; label: string; placeholder: string }[] = [
-    { key: "preferredAirlines", label: "Airlines", placeholder: "e.g. United, Delta" },
-    { key: "preferredAirports", label: "Home Airports", placeholder: "e.g. SFO, JFK" },
-    { key: "preferredHotels", label: "Hotels", placeholder: "e.g. Marriott, Hilton" },
-    { key: "seatPreference", label: "Seat", placeholder: "e.g. Aisle" },
-    { key: "timePreference", label: "Times", placeholder: "e.g. Morning flights" },
-    { key: "loyaltyPrograms", label: "Loyalty", placeholder: "e.g. United Gold" },
-    { key: "otherNotes", label: "Notes", placeholder: "e.g. No red-eyes" },
+  const deleteTrip = async (id: string) => {
+    await fetch("/api/ai/travel-plan", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setSavedTrips((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const recFlight = (flights: Flight[]) => flights.find((f) => f.recommended) || flights[0];
+  const altFlights = (flights: Flight[]) => flights.filter((f) => f !== recFlight(flights));
+  const recHotel = (hotels: Hotel[]) => hotels.find((h) => h.recommended) || hotels[0];
+  const altHotels = (hotels: Hotel[]) => hotels.filter((h) => h !== recHotel(hotels));
+
+  const prefFields: { key: keyof TravelPreferences; label: string; ph: string }[] = [
+    { key: "preferredAirlines", label: "Airlines", ph: "United, Delta" },
+    { key: "preferredAirports", label: "Airports", ph: "SFO, JFK" },
+    { key: "preferredHotels", label: "Hotels", ph: "Marriott, Hilton" },
+    { key: "seatPreference", label: "Seat", ph: "Aisle" },
+    { key: "timePreference", label: "Times", ph: "Morning flights" },
+    { key: "loyaltyPrograms", label: "Loyalty", ph: "United Gold" },
+    { key: "otherNotes", label: "Notes", ph: "No red-eyes" },
   ];
 
   return (
@@ -175,44 +162,34 @@ export default function TravelPlannerPage() {
       <div className="relative z-10">
         <NavHeader />
 
-        <div className="px-8 py-8 max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
-              Travel Planner
-            </h2>
-            <button
-              onClick={() => setShowPrefs(!showPrefs)}
-              className="text-[10px] tracking-widest text-white/40 uppercase hover:text-white/60 transition-colors"
-            >
+        <div className="px-8 py-8 max-w-3xl mx-auto">
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-2xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>Travel Planner</h2>
+            <button onClick={() => setShowPrefs(!showPrefs)} className="text-[10px] tracking-widest text-white/35 uppercase hover:text-white/60 transition-colors">
               {showPrefs ? "Close" : "Preferences"}
             </button>
           </div>
 
           {/* Preferences */}
           {showPrefs && (
-            <div className="mb-5 rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl">
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="mb-5 rounded-xl border border-white/8 bg-white/[0.04] p-4 backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {prefFields.map((f) => (
                   <div key={f.key}>
-                    <label className="mb-0.5 block text-[9px] tracking-widest text-white/30 uppercase">{f.label}</label>
-                    <input
-                      type="text"
-                      value={prefs[f.key]}
-                      onChange={(e) => setPrefs((p) => ({ ...p, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      className="w-full rounded border border-white/10 bg-white/[0.05] px-2.5 py-1.5 text-xs text-white placeholder-white/20 outline-none focus:border-white/20"
-                    />
+                    <label className="mb-0.5 block text-[8px] tracking-widest text-white/25 uppercase">{f.label}</label>
+                    <input type="text" value={prefs[f.key]} onChange={(e) => setPrefs((p) => ({ ...p, [f.key]: e.target.value }))} placeholder={f.ph}
+                      className="w-full rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-white placeholder-white/15 outline-none focus:border-white/15" />
                   </div>
                 ))}
               </div>
-              <button onClick={savePreferences} disabled={savingPrefs} className="mt-2.5 text-[10px] tracking-widest text-white/50 uppercase hover:text-white/70 disabled:opacity-40">
+              <button onClick={savePreferences} disabled={savingPrefs} className="mt-2 text-[9px] tracking-widest text-white/40 uppercase hover:text-white/60 disabled:opacity-40">
                 {savingPrefs ? "Saving..." : "Save"}
               </button>
             </div>
           )}
 
-          {/* Search + Refine */}
+          {/* Search / Refine bar */}
           <div className="flex gap-2 mb-6">
             <input
               type="text"
@@ -223,32 +200,24 @@ export default function TravelPlannerPage() {
                 if (itinerary && refinement.trim()) generate(refinement.trim());
                 else if (!itinerary && request.trim()) generate();
               }}
-              placeholder={itinerary ? "Refine: 'earlier flight', 'cheaper hotel', 'add rental car'..." : "Where do you need to be? e.g. 'Anduril in Irvine Tuesday 2pm, back Wed'"}
+              placeholder={itinerary ? "Adjust this trip — 'earlier flight', 'closer hotel'..." : "Where do you need to be? 'Anduril in Irvine Tue 2pm, back Wed evening'"}
               autoFocus
-              className="flex-1 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-white/20 backdrop-blur-xl"
+              className="flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[13px] text-white placeholder-white/20 outline-none focus:border-white/15 backdrop-blur-xl"
             />
             {itinerary ? (
               <>
-                <button
-                  onClick={() => generate(refinement.trim())}
-                  disabled={generating || !refinement.trim()}
-                  className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
-                >
+                <button onClick={() => generate(refinement.trim())} disabled={generating || !refinement.trim()}
+                  className="shrink-0 rounded-xl border border-white/15 bg-white/[0.07] px-4 py-2.5 text-[10px] tracking-widest text-white/60 uppercase hover:bg-white/10 disabled:opacity-25 transition-all">
                   {generating ? "..." : "Refine"}
                 </button>
-                <button
-                  onClick={() => { setItinerary(null); setFallback(null); setRefinement(""); }}
-                  className="shrink-0 rounded-lg border border-white/10 px-3 py-2.5 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
-                >
+                <button onClick={() => { setItinerary(null); setFallback(null); setRefinement(""); }}
+                  className="shrink-0 rounded-xl border border-white/8 px-3 py-2.5 text-[10px] tracking-widest text-white/25 uppercase hover:text-white/45 transition-colors">
                   New
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => generate()}
-                disabled={generating || !request.trim()}
-                className="shrink-0 rounded-lg border border-white/25 bg-white/10 px-5 py-2.5 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
-              >
+              <button onClick={() => generate()} disabled={generating || !request.trim()}
+                className="shrink-0 rounded-xl border border-white/15 bg-white/[0.07] px-5 py-2.5 text-[10px] tracking-widest text-white/60 uppercase hover:bg-white/10 disabled:opacity-25 transition-all">
                 {generating ? "Searching..." : "Go"}
               </button>
             )}
@@ -256,112 +225,202 @@ export default function TravelPlannerPage() {
 
           {/* Loading */}
           {generating && !itinerary && (
-            <div className="flex items-center justify-center gap-3 py-12">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />
-              <span className="text-xs text-white/40">Searching flights and hotels...</span>
+            <div className="flex items-center justify-center gap-3 py-16">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
+              <span className="text-[11px] text-white/30">Searching flights and hotels...</span>
             </div>
           )}
 
           {/* Fallback */}
           {fallback && !itinerary && (
-            <div className="rounded-lg border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
+            <div className="rounded-xl border border-white/8 bg-white/[0.04] p-5 backdrop-blur-xl">
               <Markdown content={fallback} />
             </div>
           )}
 
-          {/* Itinerary */}
-          {itinerary && (
-            <div className="flex flex-col gap-5">
-              {/* Summary */}
-              <div className="rounded-lg border border-white/10 bg-white/[0.06] px-5 py-4 backdrop-blur-xl">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-base font-semibold text-white">{itinerary.summary}</h3>
-                  <span className="text-base font-semibold text-emerald-300">{itinerary.total_estimate}</span>
+          {/* ═══ Itinerary ═══ */}
+          {itinerary && (() => {
+            const outFlight = recFlight(itinerary.flights_out || []);
+            const backFlight = recFlight(itinerary.flights_back || []);
+            const hotel = recHotel(itinerary.hotels || []);
+            const outAlts = altFlights(itinerary.flights_out || []);
+            const backAlts = altFlights(itinerary.flights_back || []);
+            const hotelAlts = altHotels(itinerary.hotels || []);
+
+            return (
+              <div className="flex flex-col gap-0">
+                {/* Trip header */}
+                <div className="flex items-baseline justify-between mb-5">
+                  <h3 className="text-lg font-medium text-white">{itinerary.summary}</h3>
+                  <span className="text-lg font-medium text-emerald-300">{itinerary.total_estimate}</span>
                 </div>
-                <p className="mt-1.5 text-xs text-white/40 leading-relaxed">{itinerary.timeline}</p>
+
+                {/* ── Depart ── */}
+                {outFlight && (
+                  <div className="mb-1">
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Depart{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
+                    <BookingRow
+                      left={<>
+                        <span className="font-mono text-[11px] text-white/40 w-12">{outFlight.flight_code}</span>
+                        <span className="text-[13px] text-white/80">{outFlight.depart} → {outFlight.arrive}</span>
+                        <span className="text-[11px] text-white/30">{outFlight.route}</span>
+                        <span className="text-[11px] text-white/25">{outFlight.airline}</span>
+                      </>}
+                      price={outFlight.price}
+                      url={outFlight.url}
+                      highlight
+                    />
+                    {itinerary.flights_out_note && (
+                      <p className="text-[11px] text-white/25 mt-1.5 mb-1 pl-1 leading-relaxed">{itinerary.flights_out_note}</p>
+                    )}
+                    <AltToggle count={outAlts.length} open={showAltFlightsOut} onToggle={() => setShowAltFlightsOut(!showAltFlightsOut)} />
+                    {showAltFlightsOut && outAlts.map((f, i) => (
+                      <div key={i} className="mt-1.5">
+                        <BookingRow
+                          left={<>
+                            <span className="font-mono text-[11px] text-white/30 w-12">{f.flight_code}</span>
+                            <span className="text-[13px] text-white/60">{f.depart} → {f.arrive}</span>
+                            <span className="text-[11px] text-white/20">{f.route}</span>
+                            <span className="text-[11px] text-white/15">{f.airline}</span>
+                            {f.date && <span className="text-[11px] text-white/15">{f.date}</span>}
+                          </>}
+                          price={f.price}
+                          url={f.url}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Stay ── */}
+                {hotel && (
+                  <div className="my-4">
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
+                    <BookingRow
+                      left={<>
+                        <span className="text-[13px] text-white/80">{hotel.name}</span>
+                        <span className="text-[11px] text-white/25">{hotel.distance}</span>
+                      </>}
+                      price={hotel.price}
+                      priceNote={hotel.total ? `${hotel.total} total` : undefined}
+                      url={hotel.url}
+                      highlight
+                    />
+                    <AltToggle count={hotelAlts.length} open={showAltHotels} onToggle={() => setShowAltHotels(!showAltHotels)} />
+                    {showAltHotels && hotelAlts.map((h, i) => (
+                      <div key={i} className="mt-1.5">
+                        <BookingRow
+                          left={<>
+                            <span className="text-[13px] text-white/60">{h.name}</span>
+                            <span className="text-[11px] text-white/20">{h.distance}</span>
+                          </>}
+                          price={h.price}
+                          priceNote={h.total ? `${h.total} total` : undefined}
+                          url={h.url}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Return ── */}
+                {backFlight && (
+                  <div className="mb-1">
+                    <div className="text-[10px] tracking-widest text-white/25 uppercase mb-2">Return{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
+                    {itinerary.flights_back_note && (
+                      <p className="text-[11px] text-white/25 mb-2 pl-1 leading-relaxed">{itinerary.flights_back_note}</p>
+                    )}
+                    <BookingRow
+                      left={<>
+                        <span className="font-mono text-[11px] text-white/40 w-12">{backFlight.flight_code}</span>
+                        <span className="text-[13px] text-white/80">{backFlight.depart} → {backFlight.arrive}</span>
+                        <span className="text-[11px] text-white/30">{backFlight.route}</span>
+                        <span className="text-[11px] text-white/25">{backFlight.airline}</span>
+                      </>}
+                      price={backFlight.price}
+                      url={backFlight.url}
+                      highlight
+                    />
+                    <AltToggle count={backAlts.length} open={showAltFlightsBack} onToggle={() => setShowAltFlightsBack(!showAltFlightsBack)} />
+                    {showAltFlightsBack && backAlts.map((f, i) => (
+                      <div key={i} className="mt-1.5">
+                        <BookingRow
+                          left={<>
+                            <span className="font-mono text-[11px] text-white/30 w-12">{f.flight_code}</span>
+                            <span className="text-[13px] text-white/60">{f.depart} → {f.arrive}</span>
+                            <span className="text-[11px] text-white/20">{f.route}</span>
+                            <span className="text-[11px] text-white/15">{f.airline}</span>
+                            {f.date && <span className="text-[11px] text-white/15">{f.date}</span>}
+                          </>}
+                          price={f.price}
+                          url={f.url}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Ground */}
+                {itinerary.transport && (
+                  <div className="mt-4 pl-1 text-[11px] text-white/25">
+                    <span className="text-white/15 uppercase tracking-widest text-[9px] mr-2">Ground</span>
+                    {itinerary.transport}
+                  </div>
+                )}
               </div>
-
-              {/* Outbound */}
-              <FlightSection label="Outbound" flights={itinerary.flights_out || []} note={itinerary.flights_out_note} />
-
-              {/* Return */}
-              <FlightSection label="Return" flights={itinerary.flights_back || []} note={itinerary.flights_back_note} />
-
-              {/* Hotel */}
-              <HotelSection hotels={itinerary.hotels || []} />
-
-              {/* Ground */}
-              {itinerary.transport && (
-                <div className="flex items-baseline gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3">
-                  <span className="text-[9px] tracking-widest text-white/30 uppercase shrink-0">Ground</span>
-                  <span className="text-xs text-white/50">{itinerary.transport}</span>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* Saved trips */}
           {savedTrips.length > 0 && (
-            <div className="mt-10">
-              <h4 className="mb-3 text-[10px] font-medium tracking-widest text-white/30 uppercase">Saved Trips</h4>
-              <div className="flex flex-col gap-2">
+            <div className="mt-12 border-t border-white/5 pt-6">
+              <h4 className="mb-3 text-[9px] tracking-widest text-white/20 uppercase">Past Trips</h4>
+              <div className="flex flex-col gap-1">
                 {savedTrips.map((trip) => (
-                  <div key={trip.id} className="rounded-lg border border-white/10 bg-white/[0.04] backdrop-blur-xl transition-all hover:border-white/15">
+                  <div key={trip.id} className="rounded-lg transition-all hover:bg-white/[0.02]">
                     <button
                       onClick={() => setExpandedTrip(expandedTrip === trip.id ? null : trip.id)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-left"
                     >
-                      <div className="flex items-baseline gap-3">
-                        <span className="text-sm text-white/70">{trip.itinerary?.summary || trip.request}</span>
-                        <span className="text-[10px] text-white/25">
-                          {new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
-                      </div>
+                      <span className="text-[12px] text-white/50">{trip.itinerary?.summary || trip.request}</span>
                       <div className="flex items-center gap-3">
-                        {trip.itinerary?.total_estimate && (
-                          <span className="text-xs text-emerald-300/60">{trip.itinerary.total_estimate}</span>
-                        )}
-                        <svg className={`h-3.5 w-3.5 text-white/20 transition-transform ${expandedTrip === trip.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <span className="text-[11px] text-white/15">{new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        {trip.itinerary?.total_estimate && <span className="text-[11px] text-emerald-300/40">{trip.itinerary.total_estimate}</span>}
+                        <svg className={`h-3 w-3 text-white/15 transition-transform ${expandedTrip === trip.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                       </div>
                     </button>
                     {expandedTrip === trip.id && trip.itinerary && (
-                      <div className="px-4 pb-4 flex flex-col gap-3 border-t border-white/5 pt-3">
-                        <p className="text-xs text-white/35">{trip.itinerary.timeline}</p>
-                        {(trip.itinerary.flights_out || []).map((f, i) => <FlightRow key={`o${i}`} flight={f} />)}
-                        {(trip.itinerary.flights_back || []).map((f, i) => <FlightRow key={`r${i}`} flight={f} />)}
-                        {(trip.itinerary.hotels || []).filter((h) => h.recommended).map((h, i) => (
-                          <div key={i} className="flex items-center justify-between text-xs">
-                            <span className="text-white/50">{h.name}</span>
-                            <span className="text-emerald-300/60">{h.price}</span>
+                      <div className="px-3 pb-3 flex flex-col gap-1">
+                        <p className="text-[11px] text-white/20 mb-1">{trip.itinerary.timeline}</p>
+                        {(trip.itinerary.flights_out || []).filter((f) => f.recommended).map((f, i) => (
+                          <div key={`o${i}`} className="text-[11px] text-white/35 flex gap-2">
+                            <span className="font-mono text-white/25">{f.flight_code}</span>
+                            <span>{f.depart}→{f.arrive}</span>
+                            <span className="text-white/15">{f.route}</span>
+                            <span className="text-emerald-300/40 ml-auto">{f.price}</span>
                           </div>
                         ))}
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={() => {
-                              setItinerary(trip.itinerary);
-                              setLastRequest(trip.request);
-                              setExpandedTrip(null);
-                            }}
-                            className="text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
-                          >
-                            Load
-                          </button>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await fetch("/api/ai/travel-plan", {
-                                method: "DELETE",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: trip.id }),
-                              });
-                              setSavedTrips((prev) => prev.filter((t) => t.id !== trip.id));
-                            }}
-                            className="text-[10px] tracking-widest text-white/20 uppercase hover:text-red-400/60 transition-colors"
-                          >
-                            Delete
-                          </button>
+                        {(trip.itinerary.hotels || []).filter((h) => h.recommended).map((h, i) => (
+                          <div key={`h${i}`} className="text-[11px] text-white/35 flex gap-2">
+                            <span>{h.name}</span>
+                            <span className="text-emerald-300/40 ml-auto">{h.price}</span>
+                          </div>
+                        ))}
+                        {(trip.itinerary.flights_back || []).filter((f) => f.recommended).map((f, i) => (
+                          <div key={`r${i}`} className="text-[11px] text-white/35 flex gap-2">
+                            <span className="font-mono text-white/25">{f.flight_code}</span>
+                            <span>{f.depart}→{f.arrive}</span>
+                            <span className="text-white/15">{f.route}</span>
+                            <span className="text-emerald-300/40 ml-auto">{f.price}</span>
+                          </div>
+                        ))}
+                        <div className="flex gap-3 mt-2">
+                          <button onClick={() => { setItinerary(trip.itinerary); setLastRequest(trip.request); setExpandedTrip(null); }}
+                            className="text-[9px] tracking-widest text-white/25 uppercase hover:text-white/45 transition-colors">Load</button>
+                          <button onClick={() => deleteTrip(trip.id)}
+                            className="text-[9px] tracking-widest text-white/15 uppercase hover:text-red-400/50 transition-colors">Delete</button>
                         </div>
                       </div>
                     )}
@@ -376,142 +435,43 @@ export default function TravelPlannerPage() {
   );
 }
 
-/* ── Flight Section ── */
-function FlightSection({ label, flights, note }: { label: string; flights: Flight[]; note?: string }) {
-  const [showAlts, setShowAlts] = useState(false);
-  const recommended = flights.find((f) => f.recommended) || flights[0];
-  const alternatives = flights.filter((f) => f !== recommended);
-  if (!recommended) return null;
-
+/* ── Shared booking row ── */
+function BookingRow({ left, price, priceNote, url, highlight }: {
+  left: React.ReactNode;
+  price: string;
+  priceNote?: string;
+  url: string;
+  highlight?: boolean;
+}) {
   return (
-    <div>
-      <h4 className="mb-2 text-[9px] tracking-widest text-white/30 uppercase">{label}</h4>
-      <FlightCard flight={recommended} />
-      {note && <p className="mt-2 px-1 text-[11px] text-white/30 leading-relaxed">{note}</p>}
-      {alternatives.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowAlts(!showAlts)}
-            className="mt-2 px-1 text-[10px] tracking-widest text-white/25 uppercase hover:text-white/40 transition-colors flex items-center gap-1"
-          >
-            <svg className={`h-2.5 w-2.5 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-            {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
-          </button>
-          {showAlts && (
-            <div className="mt-2 flex flex-col gap-1.5">
-              {alternatives.map((f, i) => <FlightCard key={i} flight={f} />)}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function FlightCard({ flight }: { flight: Flight }) {
-  return (
-    <div className={`grid grid-cols-[1fr_auto] items-center rounded-lg border px-5 py-3 ${
-      flight.recommended ? "border-emerald-400/15 bg-emerald-400/[0.04]" : "border-white/8 bg-white/[0.03]"
+    <div className={`flex items-center justify-between rounded-lg border px-4 py-2.5 ${
+      highlight ? "border-white/8 bg-white/[0.04]" : "border-white/5 bg-white/[0.02]"
     }`}>
-      <div className="flex items-center gap-6">
-        <div className="w-20">
-          <div className="text-[13px] font-medium text-white/90">{flight.airline}</div>
-          <div className="text-[10px] text-white/30 font-mono">{flight.flight_code}</div>
-        </div>
-        <div className="text-[11px] text-white/35">{flight.route}</div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-[13px] text-white/80">{flight.depart} → {flight.arrive}</span>
-          {flight.date && <span className="text-[11px] text-white/30">{flight.date}</span>}
-        </div>
+      <div className="flex items-center gap-3 min-w-0">
+        {left}
       </div>
-      <div className="flex items-center gap-4">
-        <span className="text-[13px] font-semibold text-emerald-300">{flight.price}</span>
-        <a
-          href={flight.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded border border-white/15 bg-white/[0.07] px-3.5 py-1 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 hover:border-white/25"
-        >
-          Book
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function FlightRow({ flight }: { flight: Flight }) {
-  if (!flight.recommended) return null;
-  return (
-    <div className="flex items-center justify-between text-xs">
-      <div className="flex items-center gap-2 text-white/50">
-        <span>{flight.flight_code}</span>
-        <span className="text-white/25">{flight.route}</span>
-        <span>{flight.depart} → {flight.arrive}</span>
-        {flight.date && <span className="text-white/25">{flight.date}</span>}
-      </div>
-      <span className="text-emerald-300/60">{flight.price}</span>
-    </div>
-  );
-}
-
-/* ── Hotel Section ── */
-function HotelSection({ hotels }: { hotels: Hotel[] }) {
-  const [showAlts, setShowAlts] = useState(false);
-  const recommended = hotels.find((h) => h.recommended) || hotels[0];
-  const alternatives = hotels.filter((h) => h !== recommended);
-  if (!recommended) return null;
-
-  return (
-    <div>
-      <h4 className="mb-2 text-[9px] tracking-widest text-white/30 uppercase">Hotel</h4>
-      <HotelCard hotel={recommended} />
-      {alternatives.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowAlts(!showAlts)}
-            className="mt-2 px-1 text-[10px] tracking-widest text-white/25 uppercase hover:text-white/40 transition-colors flex items-center gap-1"
-          >
-            <svg className={`h-2.5 w-2.5 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-            {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
-          </button>
-          {showAlts && (
-            <div className="mt-2 flex flex-col gap-1.5">
-              {alternatives.map((h, i) => <HotelCard key={i} hotel={h} />)}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function HotelCard({ hotel }: { hotel: Hotel }) {
-  return (
-    <div className={`grid grid-cols-[1fr_auto] items-center rounded-lg border px-5 py-3 ${
-      hotel.recommended ? "border-emerald-400/15 bg-emerald-400/[0.04]" : "border-white/8 bg-white/[0.03]"
-    }`}>
-      <div className="flex items-center gap-5">
-        <span className="text-[13px] font-medium text-white/90">{hotel.name}</span>
-        <span className="text-[11px] text-white/30">{hotel.distance}</span>
-      </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 shrink-0 ml-4">
         <div className="text-right">
-          <span className="text-[13px] font-semibold text-emerald-300">{hotel.price}</span>
-          {hotel.total && <span className="ml-2 text-[11px] text-white/25">{hotel.total} total</span>}
+          <span className="text-[13px] font-medium text-emerald-300">{price}</span>
+          {priceNote && <span className="block text-[10px] text-white/20">{priceNote}</span>}
         </div>
-        <a
-          href={hotel.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded border border-white/15 bg-white/[0.07] px-3.5 py-1 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 hover:border-white/25"
-        >
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="rounded-md border border-white/12 bg-white/[0.05] px-3 py-1 text-[9px] tracking-widest text-white/60 uppercase hover:bg-white/10 hover:border-white/20 transition-all">
           Book
         </a>
       </div>
     </div>
+  );
+}
+
+function AltToggle({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
+  if (count === 0) return null;
+  return (
+    <button onClick={onToggle} className="mt-1.5 pl-1 text-[9px] tracking-widest text-white/20 uppercase hover:text-white/35 transition-colors flex items-center gap-1">
+      <svg className={`h-2 w-2 transition-transform ${open ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+      </svg>
+      {count} other option{count > 1 ? "s" : ""}
+    </button>
   );
 }
