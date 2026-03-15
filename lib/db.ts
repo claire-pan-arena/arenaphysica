@@ -50,8 +50,11 @@ export async function initDb() {
     ('meeting-report', 'Generate Meeting Report', 'Summarize notes and action items from your last meeting', 'system@arena-ai.com', 'Arena Physica', 'Productivity'),
     ('customer-crm', 'View Customer CRM', 'Access customer profiles, deal stages, and engagement history', 'system@arena-ai.com', 'Arena Physica', 'Sales'),
     ('deployment-tracker', 'Deployment Tracker', 'Monitor active field deployments and hardware status', 'system@arena-ai.com', 'Arena Physica', 'Operations'),
-    ('design-canvas', 'Design Canvas', 'Open the RF design workspace for hardware modeling', 'system@arena-ai.com', 'Arena Physica', 'Engineering'),
     ('travel-organizer', 'Travel Organizer', 'Plan and organize travel logistics for customer visits and events', 'system@arena-ai.com', 'Arena Physica', 'Productivity'),
     ('weekly-agenda', 'Weekly Agenda Generator', 'Generate a structured weekly agenda from your calendar and action items', 'system@arena-ai.com', 'Arena Physica', 'Productivity')
   ON CONFLICT (id) DO NOTHING`;
+
+  // Remove deprecated tools
+  await sql`DELETE FROM tools WHERE id = 'design-canvas'`;
+  await sql`DELETE FROM enabled_tools WHERE tool_id = 'design-canvas'`;
 }
