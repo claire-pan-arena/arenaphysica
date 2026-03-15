@@ -48,6 +48,13 @@ interface Itinerary {
   total_estimate: string;
 }
 
+interface SavedTrip {
+  id: string;
+  request: string;
+  itinerary: Itinerary | null;
+  createdAt: string;
+}
+
 const EMPTY_PREFS: TravelPreferences = {
   preferredAirlines: "",
   preferredAirports: "",
@@ -69,18 +76,21 @@ export default function TravelPlannerPage() {
   const [fallback, setFallback] = useState<string | null>(null);
   const [refinement, setRefinement] = useState("");
   const [lastRequest, setLastRequest] = useState("");
+  const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
+  const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/travel-preferences")
       .then((r) => r.json())
       .then((data) => {
-        if (data.preferences) {
-          setPrefs(data.preferences);
-          setSavedPrefs(true);
-        } else {
-          setShowPrefs(true);
-        }
+        if (data.preferences) { setPrefs(data.preferences); setSavedPrefs(true); }
+        else setShowPrefs(true);
       })
+      .catch(() => {});
+
+    fetch("/api/ai/travel-plan")
+      .then((r) => r.json())
+      .then((data) => setSavedTrips(data.plans || []))
       .catch(() => {});
   }, []);
 
@@ -117,6 +127,11 @@ export default function TravelPlannerPage() {
       } else if (data.itinerary) {
         setItinerary(data.itinerary);
         setFallback(null);
+        if (!isRefine) {
+          setSavedTrips((prev) => [{ id: data.id, request: request.trim(), itinerary: data.itinerary, createdAt: new Date().toISOString() }, ...prev]);
+        } else if (savedTrips.length > 0) {
+          setSavedTrips((prev) => [{ ...prev[0], itinerary: data.itinerary }, ...prev.slice(1)]);
+        }
       } else if (data.fallback) {
         setFallback(data.fallback);
       }
@@ -130,8 +145,6 @@ export default function TravelPlannerPage() {
     }
     setGenerating(false);
   };
-
-  const hasResult = itinerary || fallback;
 
   const prefFields: { key: keyof TravelPreferences; label: string; placeholder: string }[] = [
     { key: "preferredAirlines", label: "Airlines", placeholder: "e.g. United, Delta" },
@@ -162,141 +175,182 @@ export default function TravelPlannerPage() {
       <div className="relative z-10">
         <NavHeader />
 
-        <div className="px-8 py-10 max-w-5xl mx-auto">
+        <div className="px-8 py-8 max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-end justify-between mb-8">
-            <div>
-              <h2 className="text-3xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
-                Travel Planner
-              </h2>
-              <p className="mt-1 text-xs text-white/40">Tell us where you need to be. We handle the rest.</p>
-            </div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
+              Travel Planner
+            </h2>
             <button
               onClick={() => setShowPrefs(!showPrefs)}
-              className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-widest text-white/50 uppercase transition-all hover:border-white/25 hover:text-white/70"
+              className="text-[10px] tracking-widest text-white/40 uppercase hover:text-white/60 transition-colors"
             >
               {showPrefs ? "Close" : "Preferences"}
             </button>
           </div>
 
-          {/* Preferences (collapsed by default) */}
+          {/* Preferences */}
           {showPrefs && (
-            <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-5 rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {prefFields.map((f) => (
                   <div key={f.key}>
-                    <label className="mb-1 block text-[9px] tracking-widest text-white/40 uppercase">{f.label}</label>
+                    <label className="mb-0.5 block text-[9px] tracking-widest text-white/30 uppercase">{f.label}</label>
                     <input
                       type="text"
                       value={prefs[f.key]}
                       onChange={(e) => setPrefs((p) => ({ ...p, [f.key]: e.target.value }))}
                       placeholder={f.placeholder}
-                      className="w-full rounded border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white placeholder-white/20 outline-none focus:border-white/20"
+                      className="w-full rounded border border-white/10 bg-white/[0.05] px-2.5 py-1.5 text-xs text-white placeholder-white/20 outline-none focus:border-white/20"
                     />
                   </div>
                 ))}
               </div>
-              <button
-                onClick={savePreferences}
-                disabled={savingPrefs}
-                className="mt-3 rounded border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/60 uppercase transition-all hover:bg-white/15 disabled:opacity-40"
-              >
+              <button onClick={savePreferences} disabled={savingPrefs} className="mt-2.5 text-[10px] tracking-widest text-white/50 uppercase hover:text-white/70 disabled:opacity-40">
                 {savingPrefs ? "Saving..." : "Save"}
               </button>
             </div>
           )}
 
-          {/* Trip input */}
-          <div className="rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={request}
-                onChange={(e) => setRequest(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && request.trim() && !generating) generate(); }}
-                placeholder="Where do you need to be? e.g. 'Anduril in Irvine Tuesday 2pm, back Wednesday'"
-                autoFocus
-                className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-white/20"
-              />
+          {/* Search + Refine */}
+          <div className="flex gap-2 mb-6">
+            <input
+              type="text"
+              value={itinerary ? refinement : request}
+              onChange={(e) => itinerary ? setRefinement(e.target.value) : setRequest(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || generating) return;
+                if (itinerary && refinement.trim()) generate(refinement.trim());
+                else if (!itinerary && request.trim()) generate();
+              }}
+              placeholder={itinerary ? "Refine: 'earlier flight', 'cheaper hotel', 'add rental car'..." : "Where do you need to be? e.g. 'Anduril in Irvine Tuesday 2pm, back Wed'"}
+              autoFocus
+              className="flex-1 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-white/20 backdrop-blur-xl"
+            />
+            {itinerary ? (
+              <>
+                <button
+                  onClick={() => generate(refinement.trim())}
+                  disabled={generating || !refinement.trim()}
+                  className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
+                >
+                  {generating ? "..." : "Refine"}
+                </button>
+                <button
+                  onClick={() => { setItinerary(null); setFallback(null); setRefinement(""); }}
+                  className="shrink-0 rounded-lg border border-white/10 px-3 py-2.5 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
+                >
+                  New
+                </button>
+              </>
+            ) : (
               <button
                 onClick={() => generate()}
                 disabled={generating || !request.trim()}
-                className="shrink-0 rounded-lg border border-white/30 bg-white/15 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 disabled:opacity-40"
+                className="shrink-0 rounded-lg border border-white/25 bg-white/10 px-5 py-2.5 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
               >
                 {generating ? "Searching..." : "Go"}
               </button>
-            </div>
+            )}
           </div>
 
           {/* Loading */}
           {generating && !itinerary && (
-            <div className="mt-8 flex flex-col items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
-              <p className="text-xs text-white/40">Searching flights and hotels...</p>
+            <div className="flex items-center justify-center gap-3 py-12">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />
+              <span className="text-xs text-white/40">Searching flights and hotels...</span>
             </div>
           )}
 
-          {/* Fallback (raw text if JSON parse failed) */}
+          {/* Fallback */}
           {fallback && !itinerary && (
-            <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
+            <div className="rounded-lg border border-white/10 bg-white/[0.06] p-5 backdrop-blur-xl">
               <Markdown content={fallback} />
             </div>
           )}
 
-          {/* Structured itinerary */}
+          {/* Itinerary */}
           {itinerary && (
-            <div className="mt-2 flex flex-col gap-4">
-              {/* Summary bar */}
-              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.07] px-5 py-3 backdrop-blur-xl">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-sm font-semibold text-white">{itinerary.summary}</h3>
-                  <span className="text-xs text-white/40">{itinerary.timeline}</span>
+            <div className="flex flex-col gap-5">
+              {/* Summary */}
+              <div className="rounded-lg border border-white/10 bg-white/[0.06] px-5 py-4 backdrop-blur-xl">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-base font-semibold text-white">{itinerary.summary}</h3>
+                  <span className="text-base font-semibold text-emerald-300">{itinerary.total_estimate}</span>
                 </div>
-                <span className="text-sm font-semibold text-emerald-300">{itinerary.total_estimate}</span>
+                <p className="mt-1.5 text-xs text-white/40 leading-relaxed">{itinerary.timeline}</p>
               </div>
 
-              {/* Outbound flights */}
-              <FlightSection
-                label="Outbound"
-                flights={itinerary.flights_out || []}
-                note={itinerary.flights_out_note}
-              />
+              {/* Outbound */}
+              <FlightSection label="Outbound" flights={itinerary.flights_out || []} note={itinerary.flights_out_note} />
 
-              {/* Return flights */}
-              <FlightSection
-                label="Return"
-                flights={itinerary.flights_back || []}
-                note={itinerary.flights_back_note}
-              />
+              {/* Return */}
+              <FlightSection label="Return" flights={itinerary.flights_back || []} note={itinerary.flights_back_note} />
 
-              {/* Hotels */}
+              {/* Hotel */}
               <HotelSection hotels={itinerary.hotels || []} />
 
-              {/* Transport */}
+              {/* Ground */}
               {itinerary.transport && (
-                <div className="rounded-lg border border-white/10 bg-white/[0.05] px-5 py-3">
-                  <span className="text-[10px] tracking-widest text-white/40 uppercase mr-3">Ground</span>
-                  <span className="text-sm text-white/60">{itinerary.transport}</span>
+                <div className="flex items-baseline gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3">
+                  <span className="text-[9px] tracking-widest text-white/30 uppercase shrink-0">Ground</span>
+                  <span className="text-xs text-white/50">{itinerary.transport}</span>
                 </div>
               )}
+            </div>
+          )}
 
-              {/* Refine bar */}
-              <div className="flex gap-2 mt-2">
-                <input
-                  type="text"
-                  value={refinement}
-                  onChange={(e) => setRefinement(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && refinement.trim() && !generating) generate(refinement.trim()); }}
-                  placeholder="Adjust: 'earlier flight', 'cheaper hotel', 'need rental car'..."
-                  className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-white/20"
-                />
-                <button
-                  onClick={() => generate(refinement.trim())}
-                  disabled={generating || !refinement.trim()}
-                  className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] tracking-widest text-white/60 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
-                >
-                  {generating ? "..." : "Refine"}
-                </button>
+          {/* Saved trips */}
+          {savedTrips.length > 0 && (
+            <div className="mt-10">
+              <h4 className="mb-3 text-[10px] font-medium tracking-widest text-white/30 uppercase">Saved Trips</h4>
+              <div className="flex flex-col gap-2">
+                {savedTrips.map((trip) => (
+                  <div key={trip.id} className="rounded-lg border border-white/10 bg-white/[0.04] backdrop-blur-xl transition-all hover:border-white/15">
+                    <button
+                      onClick={() => setExpandedTrip(expandedTrip === trip.id ? null : trip.id)}
+                      className="w-full flex items-center justify-between px-4 py-3 text-left"
+                    >
+                      <div className="flex items-baseline gap-3">
+                        <span className="text-sm text-white/70">{trip.itinerary?.summary || trip.request}</span>
+                        <span className="text-[10px] text-white/25">
+                          {new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {trip.itinerary?.total_estimate && (
+                          <span className="text-xs text-emerald-300/60">{trip.itinerary.total_estimate}</span>
+                        )}
+                        <svg className={`h-3.5 w-3.5 text-white/20 transition-transform ${expandedTrip === trip.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                      </div>
+                    </button>
+                    {expandedTrip === trip.id && trip.itinerary && (
+                      <div className="px-4 pb-4 flex flex-col gap-3 border-t border-white/5 pt-3">
+                        <p className="text-xs text-white/35">{trip.itinerary.timeline}</p>
+                        {(trip.itinerary.flights_out || []).map((f, i) => <FlightRow key={`o${i}`} flight={f} />)}
+                        {(trip.itinerary.flights_back || []).map((f, i) => <FlightRow key={`r${i}`} flight={f} />)}
+                        {(trip.itinerary.hotels || []).filter((h) => h.recommended).map((h, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <span className="text-white/50">{h.name}</span>
+                            <span className="text-emerald-300/60">{h.price}</span>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            setItinerary(trip.itinerary);
+                            setLastRequest(trip.request);
+                            setExpandedTrip(null);
+                          }}
+                          className="self-start text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
+                        >
+                          Load this trip
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -306,37 +360,35 @@ export default function TravelPlannerPage() {
   );
 }
 
+/* ── Flight Section ── */
 function FlightSection({ label, flights, note }: { label: string; flights: Flight[]; note?: string }) {
   const [showAlts, setShowAlts] = useState(false);
   const recommended = flights.find((f) => f.recommended) || flights[0];
   const alternatives = flights.filter((f) => f !== recommended);
-
   if (!recommended) return null;
 
   return (
     <div>
-      <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">{label}</h4>
+      <h4 className="mb-2 text-[9px] tracking-widest text-white/30 uppercase">{label}</h4>
       <FlightCard flight={recommended} />
-      {note && (
-        <p className="mt-1.5 ml-1 text-xs text-white/35 leading-relaxed">{note}</p>
-      )}
+      {note && <p className="mt-2 px-1 text-[11px] text-white/30 leading-relaxed">{note}</p>}
       {alternatives.length > 0 && (
-        <button
-          onClick={() => setShowAlts(!showAlts)}
-          className="mt-2 ml-1 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors flex items-center gap-1.5"
-        >
-          <svg className={`h-3 w-3 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-          {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
-        </button>
-      )}
-      {showAlts && (
-        <div className="mt-2 flex flex-col gap-2">
-          {alternatives.map((f, i) => (
-            <FlightCard key={i} flight={f} />
-          ))}
-        </div>
+        <>
+          <button
+            onClick={() => setShowAlts(!showAlts)}
+            className="mt-2 px-1 text-[10px] tracking-widest text-white/25 uppercase hover:text-white/40 transition-colors flex items-center gap-1"
+          >
+            <svg className={`h-2.5 w-2.5 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+            {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
+          </button>
+          {showAlts && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {alternatives.map((f, i) => <FlightCard key={i} flight={f} />)}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -344,26 +396,27 @@ function FlightSection({ label, flights, note }: { label: string; flights: Fligh
 
 function FlightCard({ flight }: { flight: Flight }) {
   return (
-    <div className={`flex items-center justify-between rounded-lg border px-5 py-3 backdrop-blur-xl transition-all ${
-      flight.recommended
-        ? "border-emerald-400/20 bg-emerald-400/[0.06]"
-        : "border-white/10 bg-white/[0.05]"
+    <div className={`grid grid-cols-[1fr_auto] items-center rounded-lg border px-5 py-3 ${
+      flight.recommended ? "border-emerald-400/15 bg-emerald-400/[0.04]" : "border-white/8 bg-white/[0.03]"
     }`}>
-      <div className="flex items-center gap-4">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-white/90">{flight.airline}</span>
-          <span className="text-[10px] text-white/35 font-mono">{flight.flight_code}{flight.date ? ` · ${flight.date}` : ""}</span>
+      <div className="flex items-center gap-6">
+        <div className="w-20">
+          <div className="text-[13px] font-medium text-white/90">{flight.airline}</div>
+          <div className="text-[10px] text-white/30 font-mono">{flight.flight_code}</div>
         </div>
-        <div className="text-xs text-white/40">{flight.route}</div>
-        <div className="text-sm text-white/70">{flight.depart} → {flight.arrive}</div>
+        <div className="text-[11px] text-white/35">{flight.route}</div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[13px] text-white/80">{flight.depart} → {flight.arrive}</span>
+          {flight.date && <span className="text-[11px] text-white/30">{flight.date}</span>}
+        </div>
       </div>
       <div className="flex items-center gap-4">
-        <span className="text-sm font-semibold text-emerald-300">{flight.price}</span>
+        <span className="text-[13px] font-semibold text-emerald-300">{flight.price}</span>
         <a
           href={flight.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 hover:border-white/30"
+          className="rounded border border-white/15 bg-white/[0.07] px-3.5 py-1 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 hover:border-white/25"
         >
           Book
         </a>
@@ -372,34 +425,49 @@ function FlightCard({ flight }: { flight: Flight }) {
   );
 }
 
+function FlightRow({ flight }: { flight: Flight }) {
+  if (!flight.recommended) return null;
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center gap-2 text-white/50">
+        <span>{flight.flight_code}</span>
+        <span className="text-white/25">{flight.route}</span>
+        <span>{flight.depart} → {flight.arrive}</span>
+        {flight.date && <span className="text-white/25">{flight.date}</span>}
+      </div>
+      <span className="text-emerald-300/60">{flight.price}</span>
+    </div>
+  );
+}
+
+/* ── Hotel Section ── */
 function HotelSection({ hotels }: { hotels: Hotel[] }) {
   const [showAlts, setShowAlts] = useState(false);
   const recommended = hotels.find((h) => h.recommended) || hotels[0];
   const alternatives = hotels.filter((h) => h !== recommended);
-
   if (!recommended) return null;
 
   return (
     <div>
-      <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Hotel</h4>
+      <h4 className="mb-2 text-[9px] tracking-widest text-white/30 uppercase">Hotel</h4>
       <HotelCard hotel={recommended} />
       {alternatives.length > 0 && (
-        <button
-          onClick={() => setShowAlts(!showAlts)}
-          className="mt-2 ml-1 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors flex items-center gap-1.5"
-        >
-          <svg className={`h-3 w-3 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-          {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
-        </button>
-      )}
-      {showAlts && (
-        <div className="mt-2 flex flex-col gap-2">
-          {alternatives.map((h, i) => (
-            <HotelCard key={i} hotel={h} />
-          ))}
-        </div>
+        <>
+          <button
+            onClick={() => setShowAlts(!showAlts)}
+            className="mt-2 px-1 text-[10px] tracking-widest text-white/25 uppercase hover:text-white/40 transition-colors flex items-center gap-1"
+          >
+            <svg className={`h-2.5 w-2.5 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+            {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
+          </button>
+          {showAlts && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {alternatives.map((h, i) => <HotelCard key={i} hotel={h} />)}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -407,25 +475,23 @@ function HotelSection({ hotels }: { hotels: Hotel[] }) {
 
 function HotelCard({ hotel }: { hotel: Hotel }) {
   return (
-    <div className={`flex items-center justify-between rounded-lg border px-5 py-3 backdrop-blur-xl transition-all ${
-      hotel.recommended
-        ? "border-emerald-400/20 bg-emerald-400/[0.06]"
-        : "border-white/10 bg-white/[0.05]"
+    <div className={`grid grid-cols-[1fr_auto] items-center rounded-lg border px-5 py-3 ${
+      hotel.recommended ? "border-emerald-400/15 bg-emerald-400/[0.04]" : "border-white/8 bg-white/[0.03]"
     }`}>
       <div className="flex items-center gap-5">
-        <div className="text-sm font-medium text-white/90">{hotel.name}</div>
-        <div className="text-xs text-white/40">{hotel.distance}</div>
+        <span className="text-[13px] font-medium text-white/90">{hotel.name}</span>
+        <span className="text-[11px] text-white/30">{hotel.distance}</span>
       </div>
       <div className="flex items-center gap-4">
         <div className="text-right">
-          <span className="text-sm font-semibold text-emerald-300">{hotel.price}</span>
-          {hotel.total && <span className="ml-2 text-xs text-white/30">{hotel.total} total</span>}
+          <span className="text-[13px] font-semibold text-emerald-300">{hotel.price}</span>
+          {hotel.total && <span className="ml-2 text-[11px] text-white/25">{hotel.total} total</span>}
         </div>
         <a
           href={hotel.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 hover:border-white/30"
+          className="rounded border border-white/15 bg-white/[0.07] px-3.5 py-1 text-[10px] tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 hover:border-white/25"
         >
           Book
         </a>
