@@ -133,7 +133,7 @@ export default function ToolsPage() {
             <div>
               <h2
                 className="text-3xl text-white/90"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
               >
                 Tool Library
               </h2>

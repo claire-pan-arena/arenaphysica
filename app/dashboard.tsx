@@ -156,7 +156,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
         <div className="px-8 py-8">
           <p
             className="text-3xl text-white/90"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
           >
             <TypedWelcome firstName={firstName} />
           </p>
@@ -191,7 +191,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-white/60">{tool.icon}</div>
-                      <h3 className="text-[13px] font-semibold text-white/90">
+                      <h3 className="text-[14px] font-medium text-white/90" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
                         {tool.name}
                       </h3>
                     </div>
@@ -253,7 +253,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                               {event.time}
                             </span>
                             <div className="flex flex-col gap-1">
-                              <p className="text-[13px] font-medium text-white/90">
+                              <p className="text-[13px] font-medium text-white/90" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
                                 {event.title}
                               </p>
                               {event.attendees > 0 && (

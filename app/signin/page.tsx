@@ -131,7 +131,7 @@ export default function SignIn() {
           </p>
           <h1
             className="text-5xl leading-[1.1] tracking-tight text-white md:text-7xl lg:text-8xl"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
           >
             Welcome to
             <br />
