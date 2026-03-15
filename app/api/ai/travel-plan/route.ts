@@ -49,24 +49,28 @@ Return ONLY a valid JSON object — no other text, no markdown, no explanation. 
   "summary": "Short trip label, e.g. NYC → LA, Mar 17-19",
   "timeline": "Brief logistics: e.g. Depart 8am, land 11:30am, 45min drive, arrive meeting 1pm",
   "flights_out": [
-    {"airline":"Delta","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com","recommended":true}
+    {"airline":"Delta","flight_code":"DL1234","date":"Mar 17","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com/flight-search/search?...","recommended":true}
   ],
+  "flights_out_note": "LAX is 45 min / 40 miles from Irvine meeting location via I-405. Allow extra 20 min for afternoon traffic.",
   "flights_back": [
-    {"airline":"Delta","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com","recommended":false}
+    {"airline":"Delta","flight_code":"DL5678","date":"Mar 19","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com/flight-search/search?...","recommended":false}
   ],
+  "flights_back_note": "Meeting ends at 3pm. Irvine to LAX is 50 min with rush hour traffic. Recommend leaving by 4pm for 6pm flight.",
   "hotels": [
-    {"name":"Marriott Irvine","price":"$189/night","nights":2,"total":"$378","distance":"5 min to meeting","url":"https://www.marriott.com","recommended":true}
+    {"name":"Marriott Irvine","price":"$189/night","nights":2,"total":"$378","distance":"5 min to meeting","url":"https://www.marriott.com/search/...","recommended":true}
   ],
   "transport": "Rental car ~$45/day or Uber ~$65 each way",
   "total_estimate": "$650-850"
 }
 
 Rules:
-- Search for REAL current prices and availability
-- URLs must go to the airline or hotel site DIRECTLY (delta.com, united.com, marriott.com, hilton.com). NEVER aggregators.
+- Search for REAL current flights with actual flight codes (e.g. DL1234, UA567, AA890) and dates
+- URLs MUST be deep links to the booking/search page for that specific route and date on the airline or hotel site — NOT the homepage. For example: delta.com/flight-search/search?... with origin, destination, date params, or marriott.com/search/... with location and date params. Search the airline/hotel website to find the correct URL structure.
 - Mark the best option as "recommended":true based on user preferences
+- The first flight in each list is the recommended one. Include 2-3 alternatives.
+- flights_out_note: one sentence on distance/drive time from arrival airport to meeting location, including traffic considerations
+- flights_back_note: one sentence on when to leave the meeting to make the flight, accounting for traffic
 - Account for travel time, traffic, check-in — make sure they arrive on time
-- 2-3 flight options each way, 2-3 hotel options
 - Keep it minimal — no fluff${prefsContext}
 
 Today: ${new Date().toISOString().split("T")[0]}`;

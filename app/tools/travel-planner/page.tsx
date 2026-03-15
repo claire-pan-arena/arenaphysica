@@ -16,6 +16,8 @@ interface TravelPreferences {
 
 interface Flight {
   airline: string;
+  flight_code?: string;
+  date?: string;
   route: string;
   depart: string;
   arrive: string;
@@ -38,7 +40,9 @@ interface Itinerary {
   summary: string;
   timeline: string;
   flights_out: Flight[];
+  flights_out_note?: string;
   flights_back: Flight[];
+  flights_back_note?: string;
   hotels: Hotel[];
   transport: string;
   total_estimate: string;
@@ -254,34 +258,21 @@ export default function TravelPlannerPage() {
               </div>
 
               {/* Outbound flights */}
-              <div>
-                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Outbound Flights</h4>
-                <div className="flex flex-col gap-2">
-                  {(itinerary.flights_out || []).map((f, i) => (
-                    <FlightCard key={i} flight={f} />
-                  ))}
-                </div>
-              </div>
+              <FlightSection
+                label="Outbound"
+                flights={itinerary.flights_out || []}
+                note={itinerary.flights_out_note}
+              />
 
               {/* Return flights */}
-              <div>
-                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Return Flights</h4>
-                <div className="flex flex-col gap-2">
-                  {(itinerary.flights_back || []).map((f, i) => (
-                    <FlightCard key={i} flight={f} />
-                  ))}
-                </div>
-              </div>
+              <FlightSection
+                label="Return"
+                flights={itinerary.flights_back || []}
+                note={itinerary.flights_back_note}
+              />
 
               {/* Hotels */}
-              <div>
-                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Hotels</h4>
-                <div className="flex flex-col gap-2">
-                  {(itinerary.hotels || []).map((h, i) => (
-                    <HotelCard key={i} hotel={h} />
-                  ))}
-                </div>
-              </div>
+              <HotelSection hotels={itinerary.hotels || []} />
 
               {/* Transport */}
               {itinerary.transport && (
@@ -323,6 +314,42 @@ export default function TravelPlannerPage() {
   );
 }
 
+function FlightSection({ label, flights, note }: { label: string; flights: Flight[]; note?: string }) {
+  const [showAlts, setShowAlts] = useState(false);
+  const recommended = flights.find((f) => f.recommended) || flights[0];
+  const alternatives = flights.filter((f) => f !== recommended);
+
+  if (!recommended) return null;
+
+  return (
+    <div>
+      <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">{label}</h4>
+      <FlightCard flight={recommended} />
+      {note && (
+        <p className="mt-1.5 ml-1 text-xs text-white/35 leading-relaxed">{note}</p>
+      )}
+      {alternatives.length > 0 && (
+        <button
+          onClick={() => setShowAlts(!showAlts)}
+          className="mt-2 ml-1 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors flex items-center gap-1.5"
+        >
+          <svg className={`h-3 w-3 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+          {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
+        </button>
+      )}
+      {showAlts && (
+        <div className="mt-2 flex flex-col gap-2">
+          {alternatives.map((f, i) => (
+            <FlightCard key={i} flight={f} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FlightCard({ flight }: { flight: Flight }) {
   return (
     <div className={`flex items-center justify-between rounded-lg border px-5 py-3 backdrop-blur-xl transition-all ${
@@ -330,16 +357,16 @@ function FlightCard({ flight }: { flight: Flight }) {
         ? "border-emerald-400/20 bg-emerald-400/[0.06]"
         : "border-white/10 bg-white/[0.05]"
     }`}>
-      <div className="flex items-center gap-5">
-        <div className="text-sm font-medium text-white/90 w-16">{flight.airline}</div>
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-white/90">{flight.airline}</span>
+          <span className="text-[10px] text-white/35 font-mono">{flight.flight_code}{flight.date ? ` · ${flight.date}` : ""}</span>
+        </div>
         <div className="text-xs text-white/40">{flight.route}</div>
         <div className="text-sm text-white/70">{flight.depart} → {flight.arrive}</div>
       </div>
       <div className="flex items-center gap-4">
         <span className="text-sm font-semibold text-emerald-300">{flight.price}</span>
-        {flight.recommended && (
-          <span className="text-[9px] tracking-widest text-emerald-400/70 uppercase">Best</span>
-        )}
         <a
           href={flight.url}
           target="_blank"
@@ -349,6 +376,39 @@ function FlightCard({ flight }: { flight: Flight }) {
           Book
         </a>
       </div>
+    </div>
+  );
+}
+
+function HotelSection({ hotels }: { hotels: Hotel[] }) {
+  const [showAlts, setShowAlts] = useState(false);
+  const recommended = hotels.find((h) => h.recommended) || hotels[0];
+  const alternatives = hotels.filter((h) => h !== recommended);
+
+  if (!recommended) return null;
+
+  return (
+    <div>
+      <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Hotel</h4>
+      <HotelCard hotel={recommended} />
+      {alternatives.length > 0 && (
+        <button
+          onClick={() => setShowAlts(!showAlts)}
+          className="mt-2 ml-1 text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors flex items-center gap-1.5"
+        >
+          <svg className={`h-3 w-3 transition-transform ${showAlts ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+          {alternatives.length} other option{alternatives.length > 1 ? "s" : ""}
+        </button>
+      )}
+      {showAlts && (
+        <div className="mt-2 flex flex-col gap-2">
+          {alternatives.map((h, i) => (
+            <HotelCard key={i} hotel={h} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -369,9 +429,6 @@ function HotelCard({ hotel }: { hotel: Hotel }) {
           <span className="text-sm font-semibold text-emerald-300">{hotel.price}</span>
           {hotel.total && <span className="ml-2 text-xs text-white/30">{hotel.total} total</span>}
         </div>
-        {hotel.recommended && (
-          <span className="text-[9px] tracking-widest text-emerald-400/70 uppercase">Best</span>
-        )}
         <a
           href={hotel.url}
           target="_blank"
