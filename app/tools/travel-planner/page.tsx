@@ -445,11 +445,11 @@ export default function TravelPlannerPage() {
                     {calendarItinerary.daily_schedule.map((day, di) => (
                       <div key={di}>
                         <div className="text-[11px] font-medium text-white/50 mb-1.5">{day.date}</div>
-                        <div className="flex flex-col gap-0.5 pl-3 border-l border-white/8">
+                        <div className="grid pl-3 border-l border-white/8 gap-y-0.5" style={{ gridTemplateColumns: "minmax(160px, auto) 40px 1fr auto" }}>
                           {day.items.map((item, ii) => (
-                            <div key={ii} className="flex items-baseline gap-2 py-0.5">
-                              <span className="text-[11px] text-white/25 shrink-0 whitespace-nowrap tabular-nums">{item.time}</span>
-                              <span className={`text-[9px] shrink-0 w-10 uppercase tracking-wider ${
+                            <>
+                              <span key={`t${ii}`} className="text-[11px] text-white/25 whitespace-nowrap tabular-nums py-0.5">{item.time}</span>
+                              <span key={`y${ii}`} className={`text-[9px] uppercase tracking-wider py-0.5 ${
                                 item.type === "flight" ? "text-blue-300/40" :
                                 item.type === "meeting" ? "text-white/30" :
                                 item.type === "travel" ? "text-amber-200/30" :
@@ -462,21 +462,21 @@ export default function TravelPlannerPage() {
                                  item.type === "hotel" ? "hotel" :
                                  ""}
                               </span>
-                              <div className="min-w-0 flex-1">
+                              <div key={`e${ii}`} className="min-w-0 py-0.5">
                                 <span className="text-[11px] text-white/50">{item.event}</span>
                                 {item.detail && <span className="text-[10px] text-white/20 ml-1.5">{item.detail}</span>}
                               </div>
-                              {item.location && (
-                                <a href={item.location} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] text-white/20 hover:text-white/40 transition-colors shrink-0 underline underline-offset-2 decoration-white/10">
+                              {item.location ? (
+                                <a key={`l${ii}`} href={item.location} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] text-white/20 hover:text-white/40 transition-colors underline underline-offset-2 decoration-white/10 py-0.5 text-right">
                                   {item.location.includes("maps.google") ? "Map" :
                                    item.location.includes("zoom.us") ? "Zoom" :
                                    item.location.includes("meet.google") ? "Meet" :
                                    item.location.includes("teams.microsoft") ? "Teams" :
                                    "Link"}
                                 </a>
-                              )}
-                            </div>
+                              ) : <span key={`l${ii}`} />}
+                            </>
                           ))}
                         </div>
                       </div>
