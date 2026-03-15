@@ -435,8 +435,10 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
                     />
                     <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
                     <span className="text-sm text-[#e8e5e0]">{item.text}</span>
-                    {isOverdue && (
-                      <span className="text-[10px] text-red-400/80 font-medium">OVERDUE</span>
+                    {item.deadline && (
+                      <span className={`text-[10px] ${isOverdue ? "text-red-400/80 font-medium" : "text-[#9a9da6]/50"}`}>
+                        {isOverdue ? "OVERDUE · " : ""}{item.deadline}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
@@ -462,28 +464,10 @@ export default function Todos({ events, modalEvent, onModalClose, enabledTools =
                     </button>
                   </div>
                 </div>
-                {isExpanded && (
-                  <div className="mt-3 ml-[3.25rem] flex flex-col gap-2 border-t border-[#8a9a5b]/10 pt-3">
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Priority</span>
-                      <span className={`text-[11px] font-medium ${
-                        item.priority === "high" ? "text-red-400" : item.priority === "medium" ? "text-amber-400" : "text-[#9a9da6]"
-                      }`}>
-                        {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Deadline</span>
-                      <span className={`text-[11px] ${isOverdue ? "text-red-400/80 font-medium" : "text-[#e8e5e0]/70"}`}>
-                        {item.deadline || "None"}
-                      </span>
-                    </div>
-                    {item.notes && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Notes</span>
-                        <p className="text-[11px] text-[#e8e5e0]/60 leading-relaxed">{item.notes}</p>
-                      </div>
-                    )}
+                {isExpanded && item.notes && (
+                  <div className="mt-3 ml-[3.25rem] border-t border-[#8a9a5b]/10 pt-3">
+                    <span className="text-[10px] tracking-widest text-[#9a9da6]/50 uppercase">Notes</span>
+                    <p className="mt-1 text-[11px] text-[#e8e5e0]/60 leading-relaxed">{item.notes}</p>
                   </div>
                 )}
               </div>
