@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     if (prefs.time_preference) parts.push(`Times: ${prefs.time_preference}`);
     if (prefs.loyalty_programs) parts.push(`Loyalty: ${prefs.loyalty_programs}`);
     if (prefs.other_notes) parts.push(`Notes: ${prefs.other_notes}`);
+    if (prefs.home_base) parts.push(`Home base: ${prefs.home_base}`);
     if (parts.length > 0) prefsContext = parts.map(p => `- ${p}`).join("\n");
   }
 

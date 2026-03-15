@@ -12,6 +12,7 @@ interface TravelPreferences {
   timePreference: string;
   loyaltyPrograms: string;
   otherNotes: string;
+  homeBase: string;
 }
 
 interface Flight {
@@ -62,9 +63,22 @@ interface CalendarTrip {
   total_estimate: string;
 }
 
+interface DayScheduleItem {
+  time: string;
+  event: string;
+  type: "flight" | "meeting" | "travel" | "hotel" | "note";
+  detail?: string;
+}
+
+interface DaySchedule {
+  date: string;
+  items: DayScheduleItem[];
+}
+
 interface CalendarItinerary {
   home_base: string;
   trips: CalendarTrip[];
+  daily_schedule: DaySchedule[];
   no_travel_needed: string[];
   total_travel_budget: string;
 }
@@ -79,6 +93,7 @@ interface SavedTrip {
 const EMPTY_PREFS: TravelPreferences = {
   preferredAirlines: "", preferredAirports: "", preferredHotels: "",
   seatPreference: "", timePreference: "", loyaltyPrograms: "", otherNotes: "",
+  homeBase: "NYC",
 };
 
 export default function TravelPlannerPage() {
@@ -181,6 +196,7 @@ export default function TravelPlannerPage() {
     { key: "timePreference", label: "Times", ph: "Morning flights" },
     { key: "loyaltyPrograms", label: "Loyalty", ph: "United Gold" },
     { key: "otherNotes", label: "Notes", ph: "No red-eyes" },
+    { key: "homeBase", label: "Home Base", ph: "NYC" },
   ];
 
   return (
@@ -293,7 +309,9 @@ export default function TravelPlannerPage() {
                 <div>
                   <h3 className="text-lg font-medium text-white">Upcoming Travel</h3>
                   <p className="text-[11px] text-white/25 mt-0.5">Based on your calendar · Home: {calendarItinerary.home_base}</p>
-                  <span className="text-[12px] text-[#a3b18a]/70">{calendarItinerary.total_travel_budget} estimated</span>
+                  {calendarItinerary.trips.length > 1 && (
+                    <span className="text-[12px] text-[#a3b18a]/70">{calendarItinerary.total_travel_budget} estimated total</span>
+                  )}
                 </div>
                 <button onClick={() => setCalendarItinerary(null)} className="text-[9px] tracking-widest text-white/20 uppercase hover:text-white/40 transition-colors">Clear</button>
               </div>
@@ -415,6 +433,44 @@ export default function TravelPlannerPage() {
                   );
                 })}
               </div>
+
+              {/* Day-by-day itinerary */}
+              {calendarItinerary.daily_schedule && calendarItinerary.daily_schedule.length > 0 && (
+                <div className="mt-6 border-t border-white/5 pt-5">
+                  <h4 className="text-[10px] tracking-widest text-white/25 uppercase mb-4">Day-by-Day Itinerary</h4>
+                  <div className="flex flex-col gap-4">
+                    {calendarItinerary.daily_schedule.map((day, di) => (
+                      <div key={di}>
+                        <div className="text-[11px] font-medium text-white/50 mb-1.5">{day.date}</div>
+                        <div className="flex flex-col gap-0.5 pl-3 border-l border-white/8">
+                          {day.items.map((item, ii) => (
+                            <div key={ii} className="flex items-start gap-2 py-0.5">
+                              <span className="text-[11px] text-white/25 shrink-0 w-16 tabular-nums">{item.time}</span>
+                              <span className={`text-[11px] shrink-0 w-4 ${
+                                item.type === "flight" ? "text-blue-300/50" :
+                                item.type === "meeting" ? "text-white/40" :
+                                item.type === "travel" ? "text-amber-300/40" :
+                                item.type === "hotel" ? "text-purple-300/40" :
+                                "text-white/20"
+                              }`}>
+                                {item.type === "flight" ? "✈" :
+                                 item.type === "meeting" ? "●" :
+                                 item.type === "travel" ? "🚗" :
+                                 item.type === "hotel" ? "🏨" :
+                                 "—"}
+                              </span>
+                              <div className="min-w-0">
+                                <span className="text-[11px] text-white/50">{item.event}</span>
+                                {item.detail && <span className="text-[10px] text-white/20 ml-1.5">{item.detail}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Virtual meetings */}
               {calendarItinerary.no_travel_needed && calendarItinerary.no_travel_needed.length > 0 && (

@@ -27,6 +27,7 @@ export async function GET() {
       timePreference: p.time_preference,
       loyaltyPrograms: p.loyalty_programs,
       otherNotes: p.other_notes,
+      homeBase: p.home_base || "NYC",
     },
   });
 }
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
   await initDb();
 
   await sql`
-    INSERT INTO travel_preferences (user_email, preferred_airlines, preferred_airports, preferred_hotels, seat_preference, time_preference, loyalty_programs, other_notes, updated_at)
+    INSERT INTO travel_preferences (user_email, preferred_airlines, preferred_airports, preferred_hotels, seat_preference, time_preference, loyalty_programs, other_notes, home_base, updated_at)
     VALUES (
       ${session.user.email},
       ${body.preferredAirlines || ""},
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       ${body.timePreference || ""},
       ${body.loyaltyPrograms || ""},
       ${body.otherNotes || ""},
+      ${body.homeBase || "NYC"},
       NOW()
     )
     ON CONFLICT (user_email) DO UPDATE SET
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
       time_preference = EXCLUDED.time_preference,
       loyalty_programs = EXCLUDED.loyalty_programs,
       other_notes = EXCLUDED.other_notes,
+      home_base = EXCLUDED.home_base,
       updated_at = NOW()
   `;
 

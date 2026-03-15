@@ -95,9 +95,12 @@ export async function initDb() {
       time_preference TEXT DEFAULT '',
       loyalty_programs TEXT DEFAULT '',
       other_notes TEXT DEFAULT '',
+      home_base TEXT DEFAULT 'NYC',
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
+
+  await sql`ALTER TABLE travel_preferences ADD COLUMN IF NOT EXISTS home_base TEXT DEFAULT 'NYC'`;
 
   // Travel plans
   await sql`
