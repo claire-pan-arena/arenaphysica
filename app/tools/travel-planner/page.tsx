@@ -48,6 +48,27 @@ interface Itinerary {
   total_estimate: string;
 }
 
+interface CalendarTrip {
+  summary: string;
+  purpose: string;
+  dates: string;
+  meetings: { title: string; date: string; time: string; location: string }[];
+  flights_out: Flight[];
+  flights_out_note?: string;
+  flights_back: Flight[];
+  flights_back_note?: string;
+  hotels: Hotel[];
+  transport: string;
+  total_estimate: string;
+}
+
+interface CalendarItinerary {
+  home_base: string;
+  trips: CalendarTrip[];
+  no_travel_needed: string[];
+  total_travel_budget: string;
+}
+
 interface SavedTrip {
   id: string;
   request: string;
@@ -76,6 +97,9 @@ export default function TravelPlannerPage() {
   const [showAltFlightsOut, setShowAltFlightsOut] = useState(false);
   const [showAltFlightsBack, setShowAltFlightsBack] = useState(false);
   const [showAltHotels, setShowAltHotels] = useState(false);
+  const [calendarItinerary, setCalendarItinerary] = useState<CalendarItinerary | null>(null);
+  const [generatingCalendar, setGeneratingCalendar] = useState(false);
+  const [expandedCalTrip, setExpandedCalTrip] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/travel-preferences")
@@ -128,6 +152,22 @@ export default function TravelPlannerPage() {
     setSavedTrips((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const generateCalendarItinerary = async () => {
+    setGeneratingCalendar(true);
+    setCalendarItinerary(null);
+    try {
+      const res = await fetch("/api/ai/travel-itinerary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.error) setFallback(`Error: ${data.error}`);
+      else if (data.itinerary) setCalendarItinerary(data.itinerary);
+      else if (data.fallback) setFallback(data.fallback);
+    } catch { setFallback("Failed to generate calendar itinerary."); }
+    setGeneratingCalendar(false);
+  };
+
   const recFlight = (flights: Flight[]) => flights.find((f) => f.recommended) || flights[0];
   const altFlights = (flights: Flight[]) => flights.filter((f) => f !== recFlight(flights));
   const recHotel = (hotels: Hotel[]) => hotels.find((h) => h.recommended) || hotels[0];
@@ -166,9 +206,18 @@ export default function TravelPlannerPage() {
           {/* Header row */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-2xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>Travel Planner</h2>
-            <button onClick={() => setShowPrefs(!showPrefs)} className="text-[10px] tracking-widest text-white/35 uppercase hover:text-white/60 transition-colors">
-              {showPrefs ? "Close" : "Preferences"}
-            </button>
+            <div className="flex items-center gap-4">
+              <button onClick={generateCalendarItinerary} disabled={generatingCalendar}
+                className="text-[10px] tracking-widest text-white/35 uppercase hover:text-white/60 transition-colors disabled:opacity-30 flex items-center gap-1.5">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+                {generatingCalendar ? "Generating..." : "Generate from Calendar"}
+              </button>
+              <button onClick={() => setShowPrefs(!showPrefs)} className="text-[10px] tracking-widest text-white/35 uppercase hover:text-white/60 transition-colors">
+                {showPrefs ? "Close" : "Preferences"}
+              </button>
+            </div>
           </div>
 
           {/* Preferences */}
@@ -224,10 +273,163 @@ export default function TravelPlannerPage() {
           </div>
 
           {/* Loading */}
-          {generating && !itinerary && (
+          {(generating && !itinerary) && (
             <div className="flex items-center justify-center gap-3 py-16">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
               <span className="text-[11px] text-white/30">Searching flights and hotels...</span>
+            </div>
+          )}
+          {generatingCalendar && (
+            <div className="flex items-center justify-center gap-3 py-16">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
+              <span className="text-[11px] text-white/30">Analyzing calendar and searching flights for all trips...</span>
+            </div>
+          )}
+
+          {/* ═══ Calendar Itinerary ═══ */}
+          {calendarItinerary && (
+            <div className="mb-8">
+              <div className="flex items-baseline justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-medium text-white">Upcoming Travel</h3>
+                  <p className="text-[11px] text-white/25 mt-0.5">Based on your calendar · Home: {calendarItinerary.home_base}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-lg font-medium text-emerald-300">{calendarItinerary.total_travel_budget}</span>
+                  <button onClick={() => setCalendarItinerary(null)} className="text-[9px] tracking-widest text-white/20 uppercase hover:text-white/40 transition-colors">Clear</button>
+                </div>
+              </div>
+
+              {calendarItinerary.trips.length === 0 && (
+                <p className="text-[12px] text-white/30 py-4">No upcoming trips requiring travel found on your calendar.</p>
+              )}
+
+              <div className="flex flex-col gap-3">
+                {calendarItinerary.trips.map((trip, idx) => {
+                  const isExpanded = expandedCalTrip === idx;
+                  const outFlight = trip.flights_out?.[0];
+                  const backFlight = trip.flights_back?.[0];
+                  const hotel = trip.hotels?.[0];
+
+                  return (
+                    <div key={idx} className="rounded-xl border border-white/8 bg-white/[0.04] backdrop-blur-xl overflow-hidden">
+                      {/* Trip summary row — always visible */}
+                      <button
+                        onClick={() => setExpandedCalTrip(isExpanded ? null : idx)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-medium text-white">{trip.summary}</span>
+                            <span className="text-[10px] text-white/20">{trip.dates}</span>
+                          </div>
+                          <p className="text-[11px] text-white/30 mt-0.5 truncate">{trip.purpose}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 ml-4">
+                          <span className="text-[13px] font-medium text-emerald-300">{trip.total_estimate}</span>
+                          <svg className={`h-3 w-3 text-white/15 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-white/5 pt-3 flex flex-col gap-3">
+                          {/* Meetings */}
+                          {trip.meetings && trip.meetings.length > 0 && (
+                            <div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Meetings</div>
+                              {trip.meetings.map((m, mi) => (
+                                <div key={mi} className="flex items-center gap-2 text-[11px] text-white/40 py-0.5">
+                                  <span className="text-white/20">{m.date} {m.time}</span>
+                                  <span className="text-white/50">{m.title}</span>
+                                  {m.location && <span className="text-white/15">· {m.location}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Outbound */}
+                          {outFlight && (
+                            <div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Depart{outFlight.date ? ` · ${outFlight.date}` : ""}</div>
+                              <BookingRow
+                                left={<>
+                                  <span className="font-mono text-[11px] text-white/40 w-12">{outFlight.flight_code}</span>
+                                  <span className="text-[13px] text-white/80">{outFlight.depart} → {outFlight.arrive}</span>
+                                  <span className="text-[11px] text-white/30">{outFlight.route}</span>
+                                  <span className="text-[11px] text-white/25">{outFlight.airline}</span>
+                                </>}
+                                price={outFlight.price}
+                                url={outFlight.url}
+                                highlight
+                              />
+                              {trip.flights_out_note && <p className="text-[10px] text-white/20 mt-1 pl-1">{trip.flights_out_note}</p>}
+                            </div>
+                          )}
+
+                          {/* Hotel */}
+                          {hotel && (
+                            <div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Stay{hotel.nights ? ` · ${hotel.nights} night${hotel.nights > 1 ? "s" : ""}` : ""}</div>
+                              <BookingRow
+                                left={<>
+                                  <span className="text-[13px] text-white/80">{hotel.name}</span>
+                                  <span className="text-[11px] text-white/25">{hotel.distance}</span>
+                                </>}
+                                price={hotel.price}
+                                priceNote={hotel.total ? `${hotel.total} total` : undefined}
+                                url={hotel.url}
+                                highlight
+                              />
+                            </div>
+                          )}
+
+                          {/* Return */}
+                          {backFlight && (
+                            <div>
+                              <div className="text-[9px] tracking-widest text-white/20 uppercase mb-1.5">Return{backFlight.date ? ` · ${backFlight.date}` : ""}</div>
+                              {trip.flights_back_note && <p className="text-[10px] text-white/20 mb-1.5 pl-1">{trip.flights_back_note}</p>}
+                              <BookingRow
+                                left={<>
+                                  <span className="font-mono text-[11px] text-white/40 w-12">{backFlight.flight_code}</span>
+                                  <span className="text-[13px] text-white/80">{backFlight.depart} → {backFlight.arrive}</span>
+                                  <span className="text-[11px] text-white/30">{backFlight.route}</span>
+                                  <span className="text-[11px] text-white/25">{backFlight.airline}</span>
+                                </>}
+                                price={backFlight.price}
+                                url={backFlight.url}
+                                highlight
+                              />
+                            </div>
+                          )}
+
+                          {/* Ground */}
+                          {trip.transport && (
+                            <div className="pl-1 text-[10px] text-white/20">
+                              <span className="text-white/15 uppercase tracking-widest text-[8px] mr-2">Ground</span>
+                              {trip.transport}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Virtual meetings */}
+              {calendarItinerary.no_travel_needed && calendarItinerary.no_travel_needed.length > 0 && (
+                <div className="mt-4 pl-1">
+                  <div className="text-[9px] tracking-widest text-white/15 uppercase mb-1">No travel needed</div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                    {calendarItinerary.no_travel_needed.map((e, i) => (
+                      <span key={i} className="text-[10px] text-white/15">{e}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
