@@ -103,24 +103,24 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg border border-white/[0.15] bg-[#3a4050]/95 p-6 backdrop-blur-xl shadow-2xl">
-        <h3 className="mb-5 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+      <div className="relative w-full max-w-md rounded-lg border border-[#8a9a5b]/20 bg-[#2d3a2e]/95 p-6 backdrop-blur-xl shadow-2xl">
+        <h3 className="mb-5 text-[11px] font-medium tracking-widest text-[#a09570] uppercase">
           Create Action Item
         </h3>
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-[10px] tracking-widest text-white/30 uppercase">Name</label>
+            <label className="mb-1.5 block text-[10px] tracking-widest text-[#9a9da6] uppercase">Name</label>
             <input
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="w-full rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 outline-none focus:border-white/25"
+              className="w-full rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 outline-none focus:border-[#8a9a5b]/35"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] tracking-widest text-white/30 uppercase">Priority</label>
+            <label className="mb-1.5 block text-[10px] tracking-widest text-[#9a9da6] uppercase">Priority</label>
             <div className="flex gap-2">
               {(["low", "medium", "high"] as const).map((p) => (
                 <button
@@ -132,8 +132,8 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
                         ? "bg-red-500/20 text-red-300 border border-red-400/30"
                         : p === "medium"
                           ? "bg-amber-500/20 text-amber-300 border border-amber-400/30"
-                          : "bg-white/15 text-white/70 border border-white/20"
-                      : "bg-white/[0.06] text-white/40 border border-white/[0.1] hover:bg-white/[0.1]"
+                          : "bg-[#8a9a5b]/15 text-[#c5b9a8] border border-[#8a9a5b]/25"
+                      : "bg-[#2d3a2e]/60 text-[#9a9da6] border border-[#9a9da6]/15 hover:bg-[#2d3a2e]/80"
                   }`}
                 >
                   {p}
@@ -143,19 +143,19 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] tracking-widest text-white/30 uppercase">Deadline</label>
+            <label className="mb-1.5 block text-[10px] tracking-widest text-[#9a9da6] uppercase">Deadline</label>
             <input
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full rounded-lg border border-white/[0.12] bg-white/10 px-4 py-2.5 text-sm text-white/90 outline-none focus:border-white/25 [color-scheme:dark]"
+              className="w-full rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-sm text-[#e8e5e0] outline-none focus:border-[#8a9a5b]/35 [color-scheme:dark]"
             />
           </div>
 
           <div className="flex gap-3 mt-2">
             <button
               onClick={onClose}
-              className="flex-1 rounded-lg border border-white/[0.1] bg-white/[0.06] px-4 py-2.5 text-xs tracking-widest text-white/40 uppercase transition-all hover:bg-white/[0.1]"
+              className="flex-1 rounded-lg border border-[#9a9da6]/15 bg-[#2d3a2e]/60 px-4 py-2.5 text-xs tracking-widest text-[#9a9da6] uppercase transition-all hover:bg-[#2d3a2e]/80"
             >
               Cancel
             </button>
@@ -165,7 +165,7 @@ function CreateActionModal({ eventTitle, eventDate, onClose, onCreate }: CreateM
                   onCreate({ text: text.trim(), priority, deadline });
                 }
               }}
-              className="flex-1 rounded-lg border border-white/20 bg-white/20 px-4 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/25"
+              className="flex-1 rounded-lg border border-[#8a9a5b]/30 bg-[#8a9a5b]/20 px-4 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase transition-all hover:bg-[#8a9a5b]/30"
             >
               Create
             </button>
@@ -263,7 +263,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
   const priorityDot = (p: string) => {
     if (p === "high") return "bg-red-400/70";
     if (p === "medium") return "bg-amber-400/70";
-    return "bg-white/30";
+    return "bg-[#9a9da6]/50";
   };
 
   return (
@@ -291,11 +291,11 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="Add an action item..."
-          className="flex-1 rounded-lg border border-white/[0.08] bg-white/20 px-4 py-2.5 text-sm text-white/90 placeholder-white/30 backdrop-blur-xl outline-none transition-colors focus:border-white/20"
+          className="flex-1 rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-2.5 text-sm text-[#e8e5e0] placeholder-[#9a9da6]/50 backdrop-blur-xl outline-none transition-colors focus:border-[#8a9a5b]/35"
         />
         <button
           type="submit"
-          className="rounded-lg border border-white/[0.08] bg-white/20 px-4 py-2.5 text-xs tracking-widest text-white/70 uppercase backdrop-blur-xl transition-all hover:border-white/25 hover:bg-white/[0.25]"
+          className="rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-2.5 text-xs tracking-widest text-[#c5b9a8] uppercase backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35 hover:bg-[#2d3a2e]/85"
         >
           Add
         </button>
@@ -304,27 +304,27 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
       {/* Suggested from calendar */}
       {visibleSuggestions.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-[10px] tracking-widest text-white/30 uppercase">
+          <p className="text-[10px] tracking-widest text-[#a09570]/60 uppercase">
             Suggested from your calendar
           </p>
           {visibleSuggestions.map((suggestion) => (
             <div
               key={suggestion.id}
-              className="flex items-center justify-between rounded-lg border border-white/[0.1] bg-white/20 px-4 py-3 backdrop-blur-xl"
+              className="flex items-center justify-between rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/50 px-4 py-3 backdrop-blur-xl"
             >
               <div className="flex items-center gap-3">
-                <svg className="h-3.5 w-3.5 text-white/20" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <svg className="h-3.5 w-3.5 text-[#8a9a5b]/40" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
                 </svg>
-                <span className="text-sm text-white/50">{suggestion.text}</span>
+                <span className="text-sm text-[#c5b9a8]">{suggestion.text}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => acceptSuggestion(suggestion)} className="p-1.5 text-white/30 transition-colors hover:text-white/70" title="Accept">
+                <button onClick={() => acceptSuggestion(suggestion)} className="p-1.5 text-[#9a9da6]/40 transition-colors hover:text-[#8a9a5b]" title="Accept">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
                 </button>
-                <button onClick={() => dismissSuggestion(suggestion.id)} className="p-1.5 text-white/30 transition-colors hover:text-white/70" title="Dismiss">
+                <button onClick={() => dismissSuggestion(suggestion.id)} className="p-1.5 text-[#9a9da6]/40 transition-colors hover:text-[#e8e5e0]" title="Dismiss">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                   </svg>
@@ -341,20 +341,20 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
           {activeItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-lg border border-white/[0.12] bg-white/20 px-4 py-3 backdrop-blur-xl transition-all hover:border-white/25"
+              className="flex items-center justify-between rounded-lg border border-[#8a9a5b]/15 bg-[#2d3a2e]/70 px-4 py-3 backdrop-blur-xl transition-all hover:border-[#8a9a5b]/35"
             >
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => toggleItem(item.id)}
-                  className="h-4 w-4 rounded-sm border border-white/30 transition-colors hover:border-white/60"
+                  className="h-4 w-4 rounded-sm border border-[#9a9da6]/40 transition-colors hover:border-[#8a9a5b]"
                 />
                 <div className={`h-1.5 w-1.5 rounded-full ${priorityDot(item.priority)}`} />
-                <span className="text-sm text-white">{item.text}</span>
+                <span className="text-sm text-[#e8e5e0]">{item.text}</span>
                 {item.deadline && (
                   <span className={`text-[10px] ${
                     new Date(item.deadline + "T23:59:59") < new Date()
                       ? "text-red-400/80 font-medium"
-                      : "text-white/25"
+                      : "text-[#9a9da6]/50"
                   }`}>
                     {new Date(item.deadline + "T23:59:59") < new Date() ? "OVERDUE · " : ""}
                     {item.deadline}
@@ -363,7 +363,7 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
               </div>
               <button
                 onClick={() => deleteItem(item.id)}
-                className="p-1 text-white/20 transition-colors hover:text-white/60"
+                className="p-1 text-[#9a9da6]/30 transition-colors hover:text-[#e8e5e0]"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -377,26 +377,26 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
       {/* Completed */}
       {completedItems.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-[10px] tracking-widest text-white/20 uppercase">Completed</p>
+          <p className="text-[10px] tracking-widest text-[#9a9da6]/40 uppercase">Completed</p>
           {completedItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/20 px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/40 px-4 py-3"
             >
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => toggleItem(item.id)}
-                  className="flex h-4 w-4 items-center justify-center rounded-sm border border-white/20 text-white/40"
+                  className="flex h-4 w-4 items-center justify-center rounded-sm border border-[#8a9a5b]/25 text-[#8a9a5b]/50"
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
                 </button>
-                <span className="text-sm text-white/30 line-through">{item.text}</span>
+                <span className="text-sm text-[#9a9da6]/50 line-through">{item.text}</span>
               </div>
               <button
                 onClick={() => deleteItem(item.id)}
-                className="p-1 text-white/15 transition-colors hover:text-white/40"
+                className="p-1 text-[#9a9da6]/20 transition-colors hover:text-[#9a9da6]/50"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -409,8 +409,8 @@ export default function Todos({ events, modalEvent, onModalClose }: TodosProps) 
 
       {/* Empty state */}
       {activeItems.length === 0 && completedItems.length === 0 && visibleSuggestions.length === 0 && (
-        <div className="rounded-lg border border-white/[0.08] bg-white/20 p-6 text-center">
-          <p className="text-sm text-white/30">No action items yet. Add one above.</p>
+        <div className="rounded-lg border border-[#8a9a5b]/10 bg-[#2d3a2e]/50 p-6 text-center">
+          <p className="text-sm text-[#9a9da6]">No action items yet. Add one above.</p>
         </div>
       )}
     </div>
