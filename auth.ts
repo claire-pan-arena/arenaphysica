@@ -24,19 +24,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return profile?.email?.endsWith("@arena-ai.com") ?? false;
     },
     async jwt({ token, account }) {
+      // Initial sign-in — store tokens
       if (account) {
+        console.log("[auth] Initial sign-in, refresh_token present:", !!account.refresh_token);
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at ? account.expires_at * 1000 : Date.now() + 3600 * 1000;
         return token;
       }
 
-      // Return token if it hasn't expired yet
-      if (Date.now() < (token.expiresAt as number)) {
+      // Return token if it hasn't expired yet (refresh 5 min early to avoid edge cases)
+      const bufferMs = 5 * 60 * 1000;
+      if (Date.now() < (token.expiresAt as number) - bufferMs) {
         return token;
       }
 
-      // Token expired — refresh it
+      // No refresh token — can't refresh
+      if (!token.refreshToken) {
+        console.error("[auth] No refresh token available — user must re-sign-in");
+        token.error = "RefreshTokenError";
+        return token;
+      }
+
+      // Token expired (or about to) — refresh it
+      console.log("[auth] Access token expired, refreshing...");
       try {
         const res = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
@@ -52,17 +63,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || "Failed to refresh token");
+          console.error("[auth] Token refresh failed:", data.error, data.error_description);
+          token.error = "RefreshTokenError";
+          return token;
         }
 
+        console.log("[auth] Token refreshed successfully, expires_in:", data.expires_in);
         token.accessToken = data.access_token;
         token.expiresAt = Date.now() + data.expires_in * 1000;
+        // Google may rotate the refresh token
         if (data.refresh_token) {
           token.refreshToken = data.refresh_token;
         }
+        // Clear any previous error
+        delete token.error;
         return token;
-      } catch {
-        // Refresh failed — force re-sign-in
+      } catch (err) {
+        console.error("[auth] Token refresh exception:", err);
         token.error = "RefreshTokenError";
         return token;
       }
