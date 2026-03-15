@@ -37,11 +37,44 @@ export async function POST(request: NextRequest) {
     if (parts.length > 0) prefsContext = `\nPreferences: ${parts.join(". ")}`;
   }
 
+  // Fetch calendar events for context
+  let calendarContext = "";
+  const accessToken = (session as any).accessToken;
+  if (accessToken) {
+    try {
+      const now = new Date();
+      const twoWeeksOut = new Date(now);
+      twoWeeksOut.setDate(now.getDate() + 14);
+      const params = new URLSearchParams({
+        timeMin: now.toISOString(),
+        timeMax: twoWeeksOut.toISOString(),
+        singleEvents: "true",
+        orderBy: "startTime",
+        maxResults: "30",
+      });
+      const calRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (calRes.ok) {
+        const calData = await calRes.json();
+        const events = (calData.items || []).map((e: any) => {
+          const start = e.start?.dateTime || e.start?.date || "";
+          const loc = e.location || "";
+          return `${start}: ${e.summary || "Untitled"}${loc ? ` [${loc}]` : ""}`;
+        });
+        if (events.length > 0) {
+          calendarContext = `\n\nUser's upcoming calendar (next 2 weeks):\n${events.join("\n")}`;
+        }
+      }
+    } catch {}
+  }
+
   const userMessage = refine
     ? `Original trip: ${travelRequest}\n\nCurrent itinerary:\n${previousResult}\n\nChange requested: ${refine}`
     : travelRequest;
 
-  const systemPrompt = `You are an AI executive travel planner. The user is busy and needs to book NOW. Search the web for real options.
+  const systemPrompt = `You are an AI executive travel planner. The user is busy and needs to book NOW. Search the web for real options.${calendarContext}
 
 Return ONLY a valid JSON object — no other text, no markdown, no explanation. The JSON must match this exact schema:
 
