@@ -20,12 +20,10 @@ function isExternalMeeting(title: string): boolean {
   return CUSTOMER_PATTERN.test(title);
 }
 
-const tools = [
-  { name: "Generate Meeting Report" },
-  { name: "View Customer CRM" },
-  { name: "Deployment Tracker" },
-  { name: "Design Canvas" },
-];
+interface EnabledTool {
+  id: string;
+  name: string;
+}
 
 function TypedWelcome({ firstName }: { firstName: string }) {
   const fullText = `Welcome to Ground Control, ${firstName}`;
@@ -65,6 +63,8 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [modalEvent, setModalEvent] = useState<{ title: string; date: string } | null>(null);
   const [calFilter, setCalFilter] = useState<"all" | "external">("all");
+  const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
+  const [showAllTools, setShowAllTools] = useState(false);
 
   useEffect(() => {
     fetch("/api/calendar")
@@ -74,6 +74,19 @@ export default function Dashboard({ firstName }: { firstName: string }) {
         setLoadingEvents(false);
       })
       .catch(() => setLoadingEvents(false));
+
+    fetch("/api/tools")
+      .then((res) => res.json())
+      .then((data) => {
+        const tools = data.tools || [];
+        const enabledIds = new Set(data.enabledIds || []);
+        setEnabledTools(
+          tools
+            .filter((t: any) => enabledIds.has(t.id))
+            .map((t: any) => ({ id: t.id, name: t.name }))
+        );
+      })
+      .catch(() => {});
   }, []);
 
   const filteredEvents = calFilter === "external"
@@ -157,20 +170,30 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                   href="/tools"
                   className="text-[10px] tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
                 >
-                  Browse All Tools
+                  Browse Tools Library
                 </Link>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {tools.map((tool) => (
+                {(showAllTools ? enabledTools : enabledTools.slice(0, 4)).map((tool) => (
                   <button
-                    key={tool.name}
-                    className="group rounded-lg border border-white/[0.12] bg-white/20 px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
+                    key={tool.id}
+                    className="group rounded-lg border border-white/[0.12] bg-white/20 px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.25]"
                   >
                     <h3 className="text-[14px] font-medium text-white/90">
                       {tool.name}
                     </h3>
                   </button>
                 ))}
+                {!showAllTools && enabledTools.length > 4 && (
+                  <button
+                    onClick={() => setShowAllTools(true)}
+                    className="group rounded-lg border border-dashed border-white/[0.12] bg-white/10 px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.15]"
+                  >
+                    <h3 className="text-[14px] font-medium text-white/50">
+                      + {enabledTools.length - 4} More Tools
+                    </h3>
+                  </button>
+                )}
               </div>
 
               {/* Action Items */}
