@@ -14,11 +14,34 @@ interface TravelPreferences {
   otherNotes: string;
 }
 
-interface TravelPlan {
-  id: string;
-  request: string;
-  result: string;
-  createdAt: string;
+interface Flight {
+  airline: string;
+  route: string;
+  depart: string;
+  arrive: string;
+  price: string;
+  url: string;
+  recommended?: boolean;
+}
+
+interface Hotel {
+  name: string;
+  price: string;
+  nights?: number;
+  total?: string;
+  distance: string;
+  url: string;
+  recommended?: boolean;
+}
+
+interface Itinerary {
+  summary: string;
+  timeline: string;
+  flights_out: Flight[];
+  flights_back: Flight[];
+  hotels: Hotel[];
+  transport: string;
+  total_estimate: string;
 }
 
 const EMPTY_PREFS: TravelPreferences = {
@@ -38,12 +61,10 @@ export default function TravelPlannerPage() {
   const [showPrefs, setShowPrefs] = useState(false);
   const [request, setRequest] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [lastRequest, setLastRequest] = useState("");
+  const [itinerary, setItinerary] = useState<Itinerary | null>(null);
+  const [fallback, setFallback] = useState<string | null>(null);
   const [refinement, setRefinement] = useState("");
-  const [plans, setPlans] = useState<TravelPlan[]>([]);
-  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
-  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [lastRequest, setLastRequest] = useState("");
 
   useEffect(() => {
     fetch("/api/travel-preferences")
@@ -57,14 +78,6 @@ export default function TravelPlannerPage() {
         }
       })
       .catch(() => {});
-
-    fetch("/api/ai/travel-plan")
-      .then((r) => r.json())
-      .then((data) => {
-        setPlans(data.plans || []);
-        setLoadingPlans(false);
-      })
-      .catch(() => setLoadingPlans(false));
   }, []);
 
   const savePreferences = async () => {
@@ -79,51 +92,51 @@ export default function TravelPlannerPage() {
     setShowPrefs(false);
   };
 
-  const generatePlan = async (refineText?: string) => {
+  const generate = async (refineText?: string) => {
     const isRefine = !!refineText;
-    const fullRequest = isRefine
-      ? `Original request: ${lastRequest}\n\nPrevious result:\n${result}\n\nUpdate with this feedback: ${refineText}`
-      : request.trim();
-    if (!fullRequest) return;
+    if (!isRefine && !request.trim()) return;
     setGenerating(true);
-    if (!isRefine) setResult(null);
+    if (!isRefine) { setItinerary(null); setFallback(null); }
     try {
       const res = await fetch("/api/ai/travel-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request: fullRequest }),
+        body: JSON.stringify({
+          request: isRefine ? lastRequest : request.trim(),
+          refine: refineText || undefined,
+          previousResult: isRefine && itinerary ? JSON.stringify(itinerary) : undefined,
+        }),
       });
       const data = await res.json();
       if (data.error) {
-        setResult(`Error: ${data.error}`);
-      } else {
-        setResult(data.result);
-        if (!isRefine) {
-          setLastRequest(request.trim());
-          setPlans((prev) => [{ id: data.id, request: request.trim(), result: data.result, createdAt: new Date().toISOString() }, ...prev]);
-          setRequest("");
-        } else {
-          setRefinement("");
-          // Update the most recent plan
-          if (plans.length > 0) {
-            setPlans((prev) => [{ ...prev[0], result: data.result }, ...prev.slice(1)]);
-          }
-        }
+        setFallback(`Error: ${data.error}`);
+      } else if (data.itinerary) {
+        setItinerary(data.itinerary);
+        setFallback(null);
+      } else if (data.fallback) {
+        setFallback(data.fallback);
       }
+      if (!isRefine) {
+        setLastRequest(request.trim());
+        setRequest("");
+      }
+      setRefinement("");
     } catch {
-      setResult("Failed to generate travel plan. Please try again.");
+      setFallback("Something went wrong. Please try again.");
     }
     setGenerating(false);
   };
 
+  const hasResult = itinerary || fallback;
+
   const prefFields: { key: keyof TravelPreferences; label: string; placeholder: string }[] = [
-    { key: "preferredAirlines", label: "Preferred Airlines", placeholder: "e.g. United, Delta, JetBlue" },
-    { key: "preferredAirports", label: "Home Airports", placeholder: "e.g. SFO, OAK, SJC" },
-    { key: "preferredHotels", label: "Preferred Hotels", placeholder: "e.g. Marriott, Hilton, boutique hotels" },
-    { key: "seatPreference", label: "Seat Preference", placeholder: "e.g. Aisle, window, exit row" },
-    { key: "timePreference", label: "Time Preferences", placeholder: "e.g. Morning flights, no red-eyes, arrive day before" },
-    { key: "loyaltyPrograms", label: "Loyalty Programs", placeholder: "e.g. United MileagePlus Gold, Marriott Bonvoy Platinum" },
-    { key: "otherNotes", label: "Other Notes", placeholder: "e.g. Need rental car, prefer direct flights, budget limit" },
+    { key: "preferredAirlines", label: "Airlines", placeholder: "e.g. United, Delta" },
+    { key: "preferredAirports", label: "Home Airports", placeholder: "e.g. SFO, JFK" },
+    { key: "preferredHotels", label: "Hotels", placeholder: "e.g. Marriott, Hilton" },
+    { key: "seatPreference", label: "Seat", placeholder: "e.g. Aisle" },
+    { key: "timePreference", label: "Times", placeholder: "e.g. Morning flights" },
+    { key: "loyaltyPrograms", label: "Loyalty", placeholder: "e.g. United Gold" },
+    { key: "otherNotes", label: "Notes", placeholder: "e.g. No red-eyes" },
   ];
 
   return (
@@ -131,163 +144,242 @@ export default function TravelPlannerPage() {
       <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
       <div className="fixed inset-0 bg-black/30" />
       <div className="fixed inset-0" style={{ background: "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(180,160,130,0.3) 0%, transparent 70%)" }} />
-
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <svg viewBox="0 0 400 400" className="h-[800px] w-[800px] animate-[spin_30s_linear_infinite] opacity-[0.05]">
           <circle cx="200" cy="200" r="180" fill="none" stroke="white" strokeWidth="0.4" />
           <circle cx="200" cy="200" r="140" fill="none" stroke="white" strokeWidth="0.4" />
-          <circle cx="200" cy="200" r="100" fill="none" stroke="white" strokeWidth="0.4" />
           <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" />
           <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(60 200 200)" />
-          <ellipse cx="200" cy="200" rx="180" ry="70" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(120 200 200)" />
           <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" />
           <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(60 200 200)" />
-          <ellipse cx="200" cy="200" rx="70" ry="180" fill="none" stroke="white" strokeWidth="0.4" transform="rotate(120 200 200)" />
         </svg>
       </div>
 
       <div className="relative z-10">
         <NavHeader />
 
-        <div className="px-8 py-10 max-w-4xl mx-auto">
+        <div className="px-8 py-10 max-w-5xl mx-auto">
+          {/* Header */}
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2 className="text-3xl text-white" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
                 Travel Planner
               </h2>
-              <p className="mt-2 text-sm text-white/50">Describe your trip and get optimized travel options based on your preferences.</p>
+              <p className="mt-1 text-xs text-white/40">Tell us where you need to be. We handle the rest.</p>
             </div>
             <button
               onClick={() => setShowPrefs(!showPrefs)}
-              className="rounded-lg border border-white/20 bg-white/[0.07] px-4 py-2 text-xs tracking-widest text-white/80 uppercase backdrop-blur-xl transition-all hover:border-white/30 hover:bg-white/10"
+              className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-widest text-white/50 uppercase transition-all hover:border-white/25 hover:text-white/70"
             >
-              {showPrefs ? "Hide" : "Preferences"}
+              {showPrefs ? "Close" : "Preferences"}
             </button>
           </div>
 
-          {/* Preferences panel */}
+          {/* Preferences (collapsed by default) */}
           {showPrefs && (
-            <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                Your Travel Preferences
-              </h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {prefFields.map((field) => (
-                  <div key={field.key}>
-                    <label className="mb-1.5 block text-[10px] tracking-widest text-white/60 uppercase">{field.label}</label>
+            <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.07] p-5 backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {prefFields.map((f) => (
+                  <div key={f.key}>
+                    <label className="mb-1 block text-[9px] tracking-widest text-white/40 uppercase">{f.label}</label>
                     <input
                       type="text"
-                      value={prefs[field.key]}
-                      onChange={(e) => setPrefs((p) => ({ ...p, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                      className="w-full rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/20"
+                      value={prefs[f.key]}
+                      onChange={(e) => setPrefs((p) => ({ ...p, [f.key]: e.target.value }))}
+                      placeholder={f.placeholder}
+                      className="w-full rounded border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white placeholder-white/20 outline-none focus:border-white/20"
                     />
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex gap-3">
+              <button
+                onClick={savePreferences}
+                disabled={savingPrefs}
+                className="mt-3 rounded border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/60 uppercase transition-all hover:bg-white/15 disabled:opacity-40"
+              >
+                {savingPrefs ? "Saving..." : "Save"}
+              </button>
+            </div>
+          )}
+
+          {/* Trip input */}
+          {!hasResult && (
+            <div className="rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
+              <textarea
+                value={request}
+                onChange={(e) => setRequest(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && request.trim()) { e.preventDefault(); generate(); } }}
+                placeholder="Where do you need to be? e.g. 'Anduril meeting in Irvine Tuesday 2pm, back Wednesday evening' or 'Customer visit in Detroit March 20-22, meetings at 9am each day'"
+                rows={2}
+                autoFocus
+                className="w-full rounded-lg border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-white/20 resize-none leading-relaxed"
+              />
+              <div className="mt-3 flex justify-end">
                 <button
-                  onClick={savePreferences}
-                  disabled={savingPrefs}
-                  className="rounded-lg border border-white/30 bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/25 disabled:opacity-50"
+                  onClick={() => generate()}
+                  disabled={generating || !request.trim()}
+                  className="rounded-lg border border-white/30 bg-white/15 px-6 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 disabled:opacity-40"
                 >
-                  {savingPrefs ? "Saving..." : savedPrefs ? "Update Preferences" : "Save Preferences"}
+                  {generating ? "Searching..." : "Find Options"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Request input */}
-          <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
-            <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-              Plan a Trip
-            </h3>
-            <textarea
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              placeholder="Describe your trip in natural language... e.g. 'I need to fly to LA for the Anduril meeting next Tuesday, coming back Thursday evening. Meeting is in Irvine.'"
-              rows={4}
-              className="w-full rounded-lg border border-white/10 bg-white/[0.07] px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-white/20 resize-none leading-relaxed"
-            />
-            <div className="mt-3 flex justify-end">
-              <button
-                onClick={() => generatePlan()}
-                disabled={generating || !request.trim()}
-                className="rounded-lg border border-white/30 bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/25 disabled:opacity-50"
-              >
-                {generating ? "Generating..." : "Generate Options"}
-              </button>
-            </div>
-          </div>
-
-          {/* Current result */}
-          {result && (
-            <div className="mb-8 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
-              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                Travel Options
-              </h3>
-              <Markdown content={result} />
-
-              {/* Refine */}
-              <div className="mt-6 border-t border-white/10 pt-4">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={refinement}
-                    onChange={(e) => setRefinement(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && refinement.trim() && !generating) generatePlan(refinement.trim()); }}
-                    placeholder="Refine: e.g. 'earlier flights' or 'cheaper hotels' or 'add a rental car'..."
-                    className="flex-1 rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/20"
-                  />
-                  <button
-                    onClick={() => generatePlan(refinement.trim())}
-                    disabled={generating || !refinement.trim()}
-                    className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-xs tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-40"
-                  >
-                    {generating ? "Updating..." : "Refine"}
-                  </button>
-                </div>
-              </div>
+          {/* Loading */}
+          {generating && !itinerary && (
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+              <p className="text-xs text-white/40">Searching flights and hotels...</p>
             </div>
           )}
 
-          {/* Past plans */}
-          {!loadingPlans && plans.length > 0 && (
-            <div>
-              <h3 className="mb-4 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                Past Plans
-              </h3>
-              <div className="flex flex-col gap-3">
-                {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className="rounded-lg border border-white/10 bg-white/[0.07] p-4 backdrop-blur-xl transition-all hover:border-white/20"
-                  >
-                    <div
-                      className="cursor-pointer flex items-start justify-between"
-                      onClick={() => setExpandedPlan(expandedPlan === plan.id ? null : plan.id)}
-                    >
-                      <div>
-                        <p className="text-sm text-white/80">{plan.request}</p>
-                        <p className="mt-1 text-[10px] text-white/30">
-                          {new Date(plan.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        </p>
-                      </div>
-                      <svg className={`h-4 w-4 text-white/25 transition-transform shrink-0 ml-4 ${expandedPlan === plan.id ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                      </svg>
-                    </div>
-                    {expandedPlan === plan.id && (
-                      <div className="mt-4 border-t border-white/10 pt-4">
-                        <Markdown content={plan.result} />
-                      </div>
-                    )}
-                  </div>
-                ))}
+          {/* Fallback (raw text if JSON parse failed) */}
+          {fallback && !itinerary && (
+            <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl">
+              <Markdown content={fallback} />
+            </div>
+          )}
+
+          {/* Structured itinerary */}
+          {itinerary && (
+            <div className="mt-2 flex flex-col gap-4">
+              {/* Summary bar */}
+              <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.07] px-5 py-3 backdrop-blur-xl">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-sm font-semibold text-white">{itinerary.summary}</h3>
+                  <span className="text-xs text-white/40">{itinerary.timeline}</span>
+                </div>
+                <span className="text-sm font-semibold text-emerald-300">{itinerary.total_estimate}</span>
+              </div>
+
+              {/* Outbound flights */}
+              <div>
+                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Outbound Flights</h4>
+                <div className="flex flex-col gap-2">
+                  {(itinerary.flights_out || []).map((f, i) => (
+                    <FlightCard key={i} flight={f} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Return flights */}
+              <div>
+                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Return Flights</h4>
+                <div className="flex flex-col gap-2">
+                  {(itinerary.flights_back || []).map((f, i) => (
+                    <FlightCard key={i} flight={f} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Hotels */}
+              <div>
+                <h4 className="mb-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">Hotels</h4>
+                <div className="flex flex-col gap-2">
+                  {(itinerary.hotels || []).map((h, i) => (
+                    <HotelCard key={i} hotel={h} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Transport */}
+              {itinerary.transport && (
+                <div className="rounded-lg border border-white/10 bg-white/[0.05] px-5 py-3">
+                  <span className="text-[10px] tracking-widest text-white/40 uppercase mr-3">Ground</span>
+                  <span className="text-sm text-white/60">{itinerary.transport}</span>
+                </div>
+              )}
+
+              {/* Refine bar */}
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={refinement}
+                  onChange={(e) => setRefinement(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && refinement.trim() && !generating) generate(refinement.trim()); }}
+                  placeholder="Change something... e.g. 'earlier flight' or 'hotel closer to downtown'"
+                  className="flex-1 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-white/20"
+                />
+                <button
+                  onClick={() => generate(refinement.trim())}
+                  disabled={generating || !refinement.trim()}
+                  className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] tracking-widest text-white/60 uppercase transition-all hover:bg-white/15 disabled:opacity-30"
+                >
+                  {generating ? "..." : "Refine"}
+                </button>
+                <button
+                  onClick={() => { setItinerary(null); setFallback(null); setRequest(lastRequest); }}
+                  className="shrink-0 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2.5 text-[10px] tracking-widest text-white/30 uppercase transition-all hover:text-white/50"
+                >
+                  New Trip
+                </button>
               </div>
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FlightCard({ flight }: { flight: Flight }) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-5 py-3 backdrop-blur-xl transition-all ${
+      flight.recommended
+        ? "border-emerald-400/20 bg-emerald-400/[0.06]"
+        : "border-white/10 bg-white/[0.05]"
+    }`}>
+      <div className="flex items-center gap-5">
+        <div className="text-sm font-medium text-white/90 w-16">{flight.airline}</div>
+        <div className="text-xs text-white/40">{flight.route}</div>
+        <div className="text-sm text-white/70">{flight.depart} → {flight.arrive}</div>
+      </div>
+      <div className="flex items-center gap-4">
+        <span className="text-sm font-semibold text-emerald-300">{flight.price}</span>
+        {flight.recommended && (
+          <span className="text-[9px] tracking-widest text-emerald-400/70 uppercase">Best</span>
+        )}
+        <a
+          href={flight.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 hover:border-white/30"
+        >
+          Book
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function HotelCard({ hotel }: { hotel: Hotel }) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-5 py-3 backdrop-blur-xl transition-all ${
+      hotel.recommended
+        ? "border-emerald-400/20 bg-emerald-400/[0.06]"
+        : "border-white/10 bg-white/[0.05]"
+    }`}>
+      <div className="flex items-center gap-5">
+        <div className="text-sm font-medium text-white/90">{hotel.name}</div>
+        <div className="text-xs text-white/40">{hotel.distance}</div>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <span className="text-sm font-semibold text-emerald-300">{hotel.price}</span>
+          {hotel.total && <span className="ml-2 text-xs text-white/30">{hotel.total} total</span>}
+        </div>
+        {hotel.recommended && (
+          <span className="text-[9px] tracking-widest text-emerald-400/70 uppercase">Best</span>
+        )}
+        <a
+          href={hotel.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] tracking-widest text-white/80 uppercase transition-all hover:bg-white/20 hover:border-white/30"
+        >
+          Book
+        </a>
       </div>
     </div>
   );

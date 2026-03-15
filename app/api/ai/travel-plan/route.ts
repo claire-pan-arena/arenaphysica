@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "AI not configured" }, { status: 500 });
   }
 
-  const { request: travelRequest } = await request.json();
+  const { request: travelRequest, refine, previousResult } = await request.json();
   if (!travelRequest?.trim()) {
     return NextResponse.json({ error: "Travel request required" }, { status: 400 });
   }
@@ -21,62 +21,55 @@ export async function POST(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  // Get user preferences
   const prefRows = await sql`SELECT * FROM travel_preferences WHERE user_email = ${session.user.email}`;
   const prefs = prefRows[0];
 
   let prefsContext = "";
   if (prefs) {
     const parts = [];
-    if (prefs.preferred_airlines) parts.push(`Preferred airlines: ${prefs.preferred_airlines}`);
-    if (prefs.preferred_airports) parts.push(`Preferred airports: ${prefs.preferred_airports}`);
-    if (prefs.preferred_hotels) parts.push(`Preferred hotels: ${prefs.preferred_hotels}`);
-    if (prefs.seat_preference) parts.push(`Seat preference: ${prefs.seat_preference}`);
-    if (prefs.time_preference) parts.push(`Time preference: ${prefs.time_preference}`);
-    if (prefs.loyalty_programs) parts.push(`Loyalty programs: ${prefs.loyalty_programs}`);
-    if (prefs.other_notes) parts.push(`Other notes: ${prefs.other_notes}`);
-    if (parts.length > 0) {
-      prefsContext = `\n\nUser's travel preferences:\n${parts.join("\n")}`;
-    }
+    if (prefs.preferred_airlines) parts.push(`Airlines: ${prefs.preferred_airlines}`);
+    if (prefs.preferred_airports) parts.push(`Home airports: ${prefs.preferred_airports}`);
+    if (prefs.preferred_hotels) parts.push(`Hotels: ${prefs.preferred_hotels}`);
+    if (prefs.seat_preference) parts.push(`Seat: ${prefs.seat_preference}`);
+    if (prefs.time_preference) parts.push(`Times: ${prefs.time_preference}`);
+    if (prefs.loyalty_programs) parts.push(`Loyalty: ${prefs.loyalty_programs}`);
+    if (prefs.other_notes) parts.push(`Notes: ${prefs.other_notes}`);
+    if (parts.length > 0) prefsContext = `\nPreferences: ${parts.join(". ")}`;
   }
 
-  const systemPrompt = `You are a travel planning assistant for Arena Physica. You MUST use web search to find real, current flight and hotel options.
+  const userMessage = refine
+    ? `Original trip: ${travelRequest}\n\nCurrent itinerary:\n${previousResult}\n\nChange requested: ${refine}`
+    : travelRequest;
 
-For the user's trip request:
-1. Search for actual flights on the relevant routes — include airline, flight times, and prices. Link ONLY to the airline's own website (e.g. united.com, delta.com, aa.com, southwest.com). Do NOT link to aggregators like Google Flights, Kayak, Expedia, etc.
-2. Search for hotels near the meeting/destination — include hotel name, nightly rate, and distance to meeting location. Link ONLY to the hotel's own booking site (e.g. marriott.com, hilton.com, hyatt.com). Do NOT link to booking.com, hotels.com, Expedia, etc.
-3. Search for ground transportation options with costs
+  const systemPrompt = `You are an AI executive travel planner. The user is busy and needs to book NOW. Search the web for real options.
 
-Format your response EXACTLY like this structure. Keep each list item on ONE line. Do NOT use pipe characters or break items across multiple lines:
+Return ONLY a valid JSON object — no other text, no markdown, no explanation. The JSON must match this exact schema:
 
-## Flights
+{
+  "summary": "Short trip label, e.g. NYC → LA, Mar 17-19",
+  "timeline": "Brief logistics: e.g. Depart 8am, land 11:30am, 45min drive, arrive meeting 1pm",
+  "flights_out": [
+    {"airline":"Delta","route":"JFK → LAX","depart":"8:00am","arrive":"11:30am","price":"$129","url":"https://www.delta.com","recommended":true}
+  ],
+  "flights_back": [
+    {"airline":"Delta","route":"LAX → JFK","depart":"6:00pm","arrive":"2:30am+1","price":"$139","url":"https://www.delta.com","recommended":false}
+  ],
+  "hotels": [
+    {"name":"Marriott Irvine","price":"$189/night","nights":2,"total":"$378","distance":"5 min to meeting","url":"https://www.marriott.com","recommended":true}
+  ],
+  "transport": "Rental car ~$45/day or Uber ~$65 each way",
+  "total_estimate": "$650-850"
+}
 
-### Outbound
-- **Delta JFK to LAX** — Departs 8:00am, arrives 11:30am — **$129 one-way** — [Book on delta.com](https://www.delta.com)
-- **United EWR to LAX** — Departs 9:15am, arrives 12:40pm — **$149 one-way** — [Book on united.com](https://www.united.com)
+Rules:
+- Search for REAL current prices and availability
+- URLs must go to the airline or hotel site DIRECTLY (delta.com, united.com, marriott.com, hilton.com). NEVER aggregators.
+- Mark the best option as "recommended":true based on user preferences
+- Account for travel time, traffic, check-in — make sure they arrive on time
+- 2-3 flight options each way, 2-3 hotel options
+- Keep it minimal — no fluff${prefsContext}
 
-### Return
-- Same format as above
-
-## Hotels
-- **Marriott Irvine Spectrum** — **$189/night** — 5 min from meeting location — [Book on marriott.com](https://www.marriott.com)
-- **Hilton Irvine** — **$169/night** — 10 min drive — [Book on hilton.com](https://www.hilton.com)
-
-## Ground Transport
-- Rental car from LAX: approximately **$45/day** from major providers
-- Uber/Lyft from LAX to Irvine: approximately **$60-80**
-
-## Recommended Itinerary
-A short paragraph explaining the best combination and why.
-
-RULES:
-- Each bullet must be ONE line — never split a bullet across lines
-- Only link to airline and hotel websites directly — NO aggregators (no Google Flights, Kayak, Expedia, booking.com, hotels.com)
-- Bold all prices with ** markers
-- Keep it concise — no filler text between sections
-- Prioritize the user's preferences when ranking options${prefsContext}
-
-Today's date is ${new Date().toISOString().split("T")[0]}.`;
+Today: ${new Date().toISOString().split("T")[0]}`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -87,16 +80,10 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
+      max_tokens: 3000,
       system: systemPrompt,
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-          max_uses: 10,
-        },
-      ],
-      messages: [{ role: "user", content: travelRequest }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
+      messages: [{ role: "user", content: userMessage }],
     }),
   });
 
@@ -107,23 +94,41 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`;
 
   const data = await res.json();
 
-  // Extract text blocks from the response (web search results are interleaved)
-  const textParts: string[] = [];
+  // Extract text blocks and find JSON
+  let jsonStr = "";
   for (const block of data.content || []) {
     if (block.type === "text") {
-      textParts.push(block.text);
+      jsonStr += block.text;
     }
   }
-  const content = textParts.join("\n\n") || "No response generated.";
 
-  // Save the plan
+  // Try to extract JSON from the response
+  let itinerary;
+  try {
+    // Try direct parse first
+    itinerary = JSON.parse(jsonStr.trim());
+  } catch {
+    // Try to find JSON within the text
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        itinerary = JSON.parse(jsonMatch[0]);
+      } catch {
+        // Return raw text as fallback
+        return NextResponse.json({ id: `tp-${Date.now()}`, fallback: jsonStr });
+      }
+    } else {
+      return NextResponse.json({ id: `tp-${Date.now()}`, fallback: jsonStr });
+    }
+  }
+
   const id = `tp-${Date.now()}`;
   await sql`
     INSERT INTO travel_plans (id, request, result, creator_email, creator_name)
-    VALUES (${id}, ${travelRequest.trim()}, ${content}, ${session.user.email}, ${session.user.name || "Unknown"})
+    VALUES (${id}, ${travelRequest.trim()}, ${JSON.stringify(itinerary)}, ${session.user.email}, ${session.user.name || "Unknown"})
   `;
 
-  return NextResponse.json({ id, result: content });
+  return NextResponse.json({ id, itinerary });
 }
 
 export async function GET() {
@@ -135,14 +140,18 @@ export async function GET() {
   const sql = getDb();
   await initDb();
 
-  const plans = await sql`SELECT * FROM travel_plans WHERE creator_email = ${session.user.email} ORDER BY created_at DESC LIMIT 20`;
+  const plans = await sql`SELECT * FROM travel_plans WHERE creator_email = ${session.user.email} ORDER BY created_at DESC LIMIT 10`;
 
   return NextResponse.json({
-    plans: plans.map((p: any) => ({
-      id: p.id,
-      request: p.request,
-      result: p.result,
-      createdAt: p.created_at,
-    })),
+    plans: plans.map((p: any) => {
+      let itinerary = null;
+      try { itinerary = JSON.parse(p.result); } catch {}
+      return {
+        id: p.id,
+        request: p.request,
+        itinerary,
+        createdAt: p.created_at,
+      };
+    }),
   });
 }
