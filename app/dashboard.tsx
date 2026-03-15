@@ -108,7 +108,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 backdrop-blur-md bg-white/[0.03]">
+        <header className="flex items-center justify-between px-8 py-4">
           <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
             Arena Physica
           </h1>
