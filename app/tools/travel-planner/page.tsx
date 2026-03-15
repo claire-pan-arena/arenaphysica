@@ -587,7 +587,15 @@ export default function TravelPlannerPage() {
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[11px] text-white/15">{new Date(trip.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                         {trip.itinerary?.total_estimate && <span className="text-[11px] text-[#a3b18a]/40">{trip.itinerary.total_estimate}</span>}
+                        <button onClick={(e) => { e.stopPropagation(); setItinerary(trip.itinerary); setLastRequest(trip.request); setExpandedTrip(null); }}
+                          title="Load"
+                          className="p-0.5 text-white/10 hover:text-white/50 transition-colors">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                          </svg>
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id); }}
+                          title="Delete"
                           className="p-0.5 text-white/10 hover:text-red-400/60 transition-colors">
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -623,10 +631,6 @@ export default function TravelPlannerPage() {
                             <span className="text-[#a3b18a]/40 ml-auto">{f.price}</span>
                           </div>
                         ))}
-                        <div className="flex gap-3 mt-2">
-                          <button onClick={() => { setItinerary(trip.itinerary); setLastRequest(trip.request); setExpandedTrip(null); }}
-                            className="text-[9px] tracking-widest text-white/25 uppercase hover:text-white/45 transition-colors">Load</button>
-                        </div>
                       </div>
                     )}
                   </div>
