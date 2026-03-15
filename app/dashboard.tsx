@@ -2,6 +2,7 @@
 
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Todos from "./todos";
 
 interface CalendarEvent {
@@ -104,14 +105,14 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Gradient background */}
-      <div className="fixed inset-0 bg-gradient-to-b from-[#2a3040] via-[#3a4555] to-[#1a2030]" />
+      <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
 
       {/* Horizon glow */}
       <div
         className="fixed inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(100,120,140,0.2) 0%, transparent 70%)",
+            "radial-gradient(ellipse 120% 60% at 50% 80%, rgba(180,160,130,0.3) 0%, transparent 70%)",
         }}
       />
 
@@ -139,44 +140,54 @@ export default function Dashboard({ firstName }: { firstName: string }) {
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <header className="border-b border-white/10 px-8 py-5 backdrop-blur-md bg-white/[0.03]">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
-              Arena Physica
-            </h1>
-            <button
-              onClick={() => signOut()}
-              className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-          <div className="mt-2 border-t border-white/[0.06] pt-3">
-            <p
-              className="text-2xl text-white/90"
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-            >
-              <TypedWelcome firstName={firstName} />
-            </p>
-          </div>
+        <header className="flex items-center justify-between border-b border-white/10 px-8 py-4 backdrop-blur-md bg-white/[0.03]">
+          <h1 className="text-xs tracking-[0.3em] text-white/50 uppercase font-medium">
+            Arena Physica
+          </h1>
+          <button
+            onClick={() => signOut()}
+            className="text-xs tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
+          >
+            Sign out
+          </button>
         </header>
+
+        {/* Welcome */}
+        <div className="px-8 py-8">
+          <p
+            className="text-3xl text-white/90"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+          >
+            <TypedWelcome firstName={firstName} />
+          </p>
+        </div>
 
         {/* Main content */}
         <div className="mx-auto max-w-7xl px-8 py-10">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
             {/* Left — Tools + Todos */}
             <div className="lg:col-span-3">
-              <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
-                Tools
-              </h2>
-              <p className="mb-6 text-sm text-white/40">
-                Quick access to your most-used workflows
-              </p>
+              <div className="flex items-end justify-between mb-6">
+                <div>
+                  <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+                    Tools
+                  </h2>
+                  <p className="text-sm text-white/40">
+                    Quick access to your most-used workflows
+                  </p>
+                </div>
+                <Link
+                  href="/tools"
+                  className="text-[10px] tracking-widest text-white/40 uppercase hover:text-white/70 transition-colors"
+                >
+                  Browse All Tools
+                </Link>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {tools.map((tool) => (
                   <button
                     key={tool.name}
-                    className="group flex flex-col gap-3 rounded border border-white/[0.08] bg-[#1e2535]/80 p-6 text-left backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#232b3d]/90"
+                    className="group flex flex-col gap-3 rounded border border-white/[0.08] bg-[#2a3040]/90 p-6 text-left backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#303848]/95"
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-white/60">{tool.icon}</div>
@@ -215,7 +226,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     {[...Array(4)].map((_, i) => (
                       <div
                         key={i}
-                        className="rounded border border-white/[0.06] bg-[#1e2535]/80 p-4 backdrop-blur-md animate-pulse"
+                        className="rounded border border-white/[0.06] bg-[#2a3040]/90 p-4 backdrop-blur-md animate-pulse"
                       >
                         <div className="h-3 w-16 rounded bg-white/10 mb-2" />
                         <div className="h-4 w-40 rounded bg-white/10" />
@@ -223,7 +234,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     ))}
                   </div>
                 ) : events.length === 0 ? (
-                  <div className="rounded border border-white/[0.06] bg-[#1e2535]/80 p-6 backdrop-blur-md text-center">
+                  <div className="rounded border border-white/[0.06] bg-[#2a3040]/90 p-6 backdrop-blur-md text-center">
                     <p className="text-sm text-white/40">No upcoming events this week</p>
                   </div>
                 ) : (
@@ -236,7 +247,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                         {dayEvents.map((event, i) => (
                           <div
                             key={i}
-                            className="flex items-start gap-4 rounded border border-white/[0.08] bg-[#1e2535]/80 p-4 backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#232b3d]/90"
+                            className="flex items-start gap-4 rounded border border-white/[0.08] bg-[#2a3040]/90 p-4 backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:bg-[#303848]/95"
                           >
                             <span className="mt-0.5 whitespace-nowrap font-mono text-[11px] text-white/40">
                               {event.time}
