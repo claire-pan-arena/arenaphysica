@@ -39,6 +39,8 @@ export default function TravelPlannerPage() {
   const [request, setRequest] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState("");
+  const [refinement, setRefinement] = useState("");
   const [plans, setPlans] = useState<TravelPlan[]>([]);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -77,23 +79,36 @@ export default function TravelPlannerPage() {
     setShowPrefs(false);
   };
 
-  const generatePlan = async () => {
-    if (!request.trim()) return;
+  const generatePlan = async (refineText?: string) => {
+    const isRefine = !!refineText;
+    const fullRequest = isRefine
+      ? `Original request: ${lastRequest}\n\nPrevious result:\n${result}\n\nUpdate with this feedback: ${refineText}`
+      : request.trim();
+    if (!fullRequest) return;
     setGenerating(true);
-    setResult(null);
+    if (!isRefine) setResult(null);
     try {
       const res = await fetch("/api/ai/travel-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request: request.trim() }),
+        body: JSON.stringify({ request: fullRequest }),
       });
       const data = await res.json();
       if (data.error) {
         setResult(`Error: ${data.error}`);
       } else {
         setResult(data.result);
-        setPlans((prev) => [{ id: data.id, request: request.trim(), result: data.result, createdAt: new Date().toISOString() }, ...prev]);
-        setRequest("");
+        if (!isRefine) {
+          setLastRequest(request.trim());
+          setPlans((prev) => [{ id: data.id, request: request.trim(), result: data.result, createdAt: new Date().toISOString() }, ...prev]);
+          setRequest("");
+        } else {
+          setRefinement("");
+          // Update the most recent plan
+          if (plans.length > 0) {
+            setPlans((prev) => [{ ...prev[0], result: data.result }, ...prev.slice(1)]);
+          }
+        }
       }
     } catch {
       setResult("Failed to generate travel plan. Please try again.");
@@ -196,7 +211,7 @@ export default function TravelPlannerPage() {
             />
             <div className="mt-3 flex justify-end">
               <button
-                onClick={generatePlan}
+                onClick={() => generatePlan()}
                 disabled={generating || !request.trim()}
                 className="rounded-lg border border-white/30 bg-white/20 px-5 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/25 disabled:opacity-50"
               >
@@ -212,6 +227,27 @@ export default function TravelPlannerPage() {
                 Travel Options
               </h3>
               <Markdown content={result} />
+
+              {/* Refine */}
+              <div className="mt-6 border-t border-white/10 pt-4">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={refinement}
+                    onChange={(e) => setRefinement(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && refinement.trim() && !generating) generatePlan(refinement.trim()); }}
+                    placeholder="Refine: e.g. 'earlier flights' or 'cheaper hotels' or 'add a rental car'..."
+                    className="flex-1 rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/20"
+                  />
+                  <button
+                    onClick={() => generatePlan(refinement.trim())}
+                    disabled={generating || !refinement.trim()}
+                    className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 text-xs tracking-widest text-white/70 uppercase transition-all hover:bg-white/15 disabled:opacity-40"
+                  >
+                    {generating ? "Updating..." : "Refine"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

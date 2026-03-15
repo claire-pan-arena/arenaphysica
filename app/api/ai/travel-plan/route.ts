@@ -47,23 +47,34 @@ For the user's trip request:
 2. Search for hotels near the meeting/destination — include hotel name, nightly rate, and distance to meeting location. Link ONLY to the hotel's own booking site (e.g. marriott.com, hilton.com, hyatt.com). Do NOT link to booking.com, hotels.com, Expedia, etc.
 3. Search for ground transportation options with costs
 
-Format your response as:
+Format your response EXACTLY like this structure. Keep each list item on ONE line. Do NOT use pipe characters or break items across multiple lines:
 
 ## Flights
-For each flight option, show:
-- **Airline Route** — departure → arrival times | $PRICE | [Book on airline.com](direct airline url)
+
+### Outbound
+- **Delta JFK to LAX** — Departs 8:00am, arrives 11:30am — **$129 one-way** — [Book on delta.com](https://www.delta.com)
+- **United EWR to LAX** — Departs 9:15am, arrives 12:40pm — **$149 one-way** — [Book on united.com](https://www.united.com)
+
+### Return
+- Same format as above
 
 ## Hotels
-For each hotel option, show:
-- **Hotel Name** — $PRICE/night | distance to destination | [Book on hotel.com](direct hotel url)
+- **Marriott Irvine Spectrum** — **$189/night** — 5 min from meeting location — [Book on marriott.com](https://www.marriott.com)
+- **Hilton Irvine** — **$169/night** — 10 min drive — [Book on hilton.com](https://www.hilton.com)
 
 ## Ground Transport
-- Options with estimated costs
+- Rental car from LAX: approximately **$45/day** from major providers
+- Uber/Lyft from LAX to Irvine: approximately **$60-80**
 
 ## Recommended Itinerary
-Pick the best combination based on their preferences and explain why.
+A short paragraph explaining the best combination and why.
 
-IMPORTANT: Only link to airline and hotel websites directly. Never link to third-party aggregators or booking sites. Show prices next to every suggestion. Prioritize the user's preferences when ranking options.${prefsContext}
+RULES:
+- Each bullet must be ONE line — never split a bullet across lines
+- Only link to airline and hotel websites directly — NO aggregators (no Google Flights, Kayak, Expedia, booking.com, hotels.com)
+- Bold all prices with ** markers
+- Keep it concise — no filler text between sections
+- Prioritize the user's preferences when ranking options${prefsContext}
 
 Today's date is ${new Date().toISOString().split("T")[0]}.`;
 
