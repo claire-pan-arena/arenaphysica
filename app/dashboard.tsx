@@ -2,6 +2,7 @@
 
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Todos from "./todos";
 
 interface CalendarEvent {
   title: string;
@@ -150,6 +151,17 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                     </p>
                   </button>
                 ))}
+              </div>
+
+              {/* To-dos */}
+              <div className="mt-10">
+                <h2 className="mb-1 text-xs tracking-widest text-white/40 uppercase">
+                  To-dos
+                </h2>
+                <p className="mb-6 text-sm text-white/50">
+                  Track tasks and act on calendar-based suggestions
+                </p>
+                <Todos events={events} />
               </div>
             </div>
 
