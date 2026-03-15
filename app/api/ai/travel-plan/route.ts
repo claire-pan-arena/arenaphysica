@@ -1,0 +1,106 @@
+import { auth } from "@/auth";
+import { getDb, initDb } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "AI not configured" }, { status: 500 });
+  }
+
+  const { request: travelRequest } = await request.json();
+  if (!travelRequest?.trim()) {
+    return NextResponse.json({ error: "Travel request required" }, { status: 400 });
+  }
+
+  const sql = getDb();
+  await initDb();
+
+  // Get user preferences
+  const prefRows = await sql`SELECT * FROM travel_preferences WHERE user_email = ${session.user.email}`;
+  const prefs = prefRows[0];
+
+  let prefsContext = "";
+  if (prefs) {
+    const parts = [];
+    if (prefs.preferred_airlines) parts.push(`Preferred airlines: ${prefs.preferred_airlines}`);
+    if (prefs.preferred_airports) parts.push(`Preferred airports: ${prefs.preferred_airports}`);
+    if (prefs.preferred_hotels) parts.push(`Preferred hotels: ${prefs.preferred_hotels}`);
+    if (prefs.seat_preference) parts.push(`Seat preference: ${prefs.seat_preference}`);
+    if (prefs.time_preference) parts.push(`Time preference: ${prefs.time_preference}`);
+    if (prefs.loyalty_programs) parts.push(`Loyalty programs: ${prefs.loyalty_programs}`);
+    if (prefs.other_notes) parts.push(`Other notes: ${prefs.other_notes}`);
+    if (parts.length > 0) {
+      prefsContext = `\n\nUser's travel preferences:\n${parts.join("\n")}`;
+    }
+  }
+
+  const systemPrompt = `You are a travel planning assistant for Arena Physica, a company that visits customers for business meetings. Generate optimized travel options based on the user's request and preferences.
+
+For each option, provide:
+- Flight suggestions (airline, approximate times, route)
+- Hotel recommendations near the meeting location
+- Ground transportation notes
+- Estimated total cost range
+- Why this option is good given their preferences
+
+Format your response in clear sections with markdown. Provide 2-3 options ranked by best fit to their preferences. Be specific with airline names, hotel chains, and neighborhoods.${prefsContext}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: travelRequest }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    return NextResponse.json({ error: "AI request failed", detail: err }, { status: 500 });
+  }
+
+  const data = await res.json();
+  const content = data.content?.[0]?.text || "No response generated.";
+
+  // Save the plan
+  const id = `tp-${Date.now()}`;
+  await sql`
+    INSERT INTO travel_plans (id, request, result, creator_email, creator_name)
+    VALUES (${id}, ${travelRequest.trim()}, ${content}, ${session.user.email}, ${session.user.name || "Unknown"})
+  `;
+
+  return NextResponse.json({ id, result: content });
+}
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sql = getDb();
+  await initDb();
+
+  const plans = await sql`SELECT * FROM travel_plans WHERE creator_email = ${session.user.email} ORDER BY created_at DESC LIMIT 20`;
+
+  return NextResponse.json({
+    plans: plans.map((p: any) => ({
+      id: p.id,
+      request: p.request,
+      result: p.result,
+      createdAt: p.created_at,
+    })),
+  });
+}

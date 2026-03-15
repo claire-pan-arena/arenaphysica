@@ -142,6 +142,58 @@ export default function Dashboard({ firstName }: { firstName: string }) {
         </svg>
       </div>
 
+      {/* Meeting note modal */}
+      {noteEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setNoteEvent(null); setNoteText(""); }} />
+          <div className="relative w-full max-w-md rounded-lg border border-white/20 bg-white/[0.12] p-6 backdrop-blur-xl shadow-2xl">
+            <h3 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+              Meeting Note
+            </h3>
+            <p className="mb-4 text-sm text-white/70">{noteEvent.title}</p>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Jot down notes from this meeting..."
+              rows={5}
+              autoFocus
+              className="w-full rounded-lg border border-white/10 bg-white/[0.07] px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-white/20 resize-none leading-relaxed"
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => { setNoteEvent(null); setNoteText(""); }}
+                className="flex-1 rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2.5 text-xs tracking-widest text-white/60 uppercase transition-all hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={savingNote || !noteText.trim()}
+                onClick={async () => {
+                  setSavingNote(true);
+                  const customer = extractCustomer(noteEvent.title);
+                  await fetch("/api/notes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      content: noteText.trim(),
+                      customer,
+                      eventTitle: noteEvent.title,
+                      eventDate: noteEvent.date,
+                    }),
+                  });
+                  setSavingNote(false);
+                  setNoteEvent(null);
+                  setNoteText("");
+                }}
+                className="flex-1 rounded-lg border border-white/30 bg-white/20 px-4 py-2.5 text-xs tracking-widest text-white/80 uppercase transition-all hover:bg-white/25 disabled:opacity-50"
+              >
+                {savingNote ? "Saving..." : "Save Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="relative z-10">
         <NavHeader />
@@ -167,16 +219,31 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                 </h2>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {(showAllTools ? enabledTools : enabledTools.slice(0, 4)).map((tool) => (
-                  <button
-                    key={tool.id}
-                    className="group rounded-lg border border-white/10 bg-white/[0.07] px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/20 hover:bg-white/10"
-                  >
-                    <h3 className="text-[14px] font-medium text-white">
-                      {tool.name}
-                    </h3>
-                  </button>
-                ))}
+                {(showAllTools ? enabledTools : enabledTools.slice(0, 4)).map((tool) => {
+                  const toolPage = ["meeting-report", "travel-planner", "weekly-sync"].includes(tool.id)
+                    ? `/tools/${tool.id}`
+                    : null;
+                  return toolPage ? (
+                    <Link
+                      key={tool.id}
+                      href={toolPage}
+                      className="group rounded-lg border border-white/10 bg-white/[0.07] px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/20 hover:bg-white/10"
+                    >
+                      <h3 className="text-[14px] font-medium text-white">
+                        {tool.name}
+                      </h3>
+                    </Link>
+                  ) : (
+                    <button
+                      key={tool.id}
+                      className="group rounded-lg border border-white/10 bg-white/[0.07] px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/20 hover:bg-white/10"
+                    >
+                      <h3 className="text-[14px] font-medium text-white">
+                        {tool.name}
+                      </h3>
+                    </button>
+                  );
+                })}
                 {!showAllTools && enabledTools.length > 4 && (
                   <button
                     onClick={() => setShowAllTools(true)}

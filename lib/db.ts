@@ -84,6 +84,33 @@ export async function initDb() {
     )
   `;
 
+  // Travel preferences per user
+  await sql`
+    CREATE TABLE IF NOT EXISTS travel_preferences (
+      user_email TEXT PRIMARY KEY,
+      preferred_airlines TEXT DEFAULT '',
+      preferred_airports TEXT DEFAULT '',
+      preferred_hotels TEXT DEFAULT '',
+      seat_preference TEXT DEFAULT '',
+      time_preference TEXT DEFAULT '',
+      loyalty_programs TEXT DEFAULT '',
+      other_notes TEXT DEFAULT '',
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  // Travel plans
+  await sql`
+    CREATE TABLE IF NOT EXISTS travel_plans (
+      id TEXT PRIMARY KEY,
+      request TEXT NOT NULL,
+      result TEXT NOT NULL,
+      creator_email TEXT NOT NULL,
+      creator_name TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Migrate enabled_tools from old IDs to new IDs (before deleting old tools)
   await sql`INSERT INTO enabled_tools (user_email, tool_id) SELECT user_email, 'travel-planner' FROM enabled_tools WHERE tool_id = 'travel-organizer' ON CONFLICT DO NOTHING`;
   await sql`INSERT INTO enabled_tools (user_email, tool_id) SELECT user_email, 'weekly-sync' FROM enabled_tools WHERE tool_id = 'weekly-agenda' ON CONFLICT DO NOTHING`;
