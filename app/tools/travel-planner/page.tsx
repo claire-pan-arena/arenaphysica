@@ -337,16 +337,32 @@ export default function TravelPlannerPage() {
                             <span className="text-emerald-300/60">{h.price}</span>
                           </div>
                         ))}
-                        <button
-                          onClick={() => {
-                            setItinerary(trip.itinerary);
-                            setLastRequest(trip.request);
-                            setExpandedTrip(null);
-                          }}
-                          className="self-start text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
-                        >
-                          Load this trip
-                        </button>
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => {
+                              setItinerary(trip.itinerary);
+                              setLastRequest(trip.request);
+                              setExpandedTrip(null);
+                            }}
+                            className="text-[10px] tracking-widest text-white/30 uppercase hover:text-white/50 transition-colors"
+                          >
+                            Load
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await fetch("/api/ai/travel-plan", {
+                                method: "DELETE",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ id: trip.id }),
+                              });
+                              setSavedTrips((prev) => prev.filter((t) => t.id !== trip.id));
+                            }}
+                            className="text-[10px] tracking-widest text-white/20 uppercase hover:text-red-400/60 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

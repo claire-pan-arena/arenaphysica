@@ -195,3 +195,15 @@ export async function GET() {
     }),
   });
 }
+
+export async function DELETE(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await request.json();
+  const sql = getDb();
+  await sql`DELETE FROM travel_plans WHERE id = ${id} AND creator_email = ${session.user.email}`;
+  return NextResponse.json({ ok: true });
+}
