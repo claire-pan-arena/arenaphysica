@@ -191,7 +191,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-white/60">{tool.icon}</div>
-                      <h3 className="text-[14px] font-medium text-white/90" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
+                      <h3 className="text-[14px] font-medium text-white/90">
                         {tool.name}
                       </h3>
                     </div>
@@ -253,7 +253,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                               {event.time}
                             </span>
                             <div className="flex flex-col gap-1">
-                              <p className="text-[13px] font-medium text-white/90" style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}>
+                              <p className="text-[13px] font-medium text-white/90">
                                 {event.title}
                               </p>
                               {event.attendees > 0 && (
