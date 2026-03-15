@@ -43,14 +43,15 @@ export async function POST(request: NextRequest) {
   if (accessToken) {
     try {
       const now = new Date();
-      const twoWeeksOut = new Date(now);
-      twoWeeksOut.setDate(now.getDate() + 14);
+      // Look ahead up to 90 days to cover any mentioned trip dates
+      const lookAhead = new Date(now);
+      lookAhead.setDate(now.getDate() + 90);
       const params = new URLSearchParams({
         timeMin: now.toISOString(),
-        timeMax: twoWeeksOut.toISOString(),
+        timeMax: lookAhead.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
-        maxResults: "30",
+        maxResults: "50",
       });
       const calRes = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
           return `${start}: ${e.summary || "Untitled"}${loc ? ` [${loc}]` : ""}`;
         });
         if (events.length > 0) {
-          calendarContext = `\n\nUser's upcoming calendar (next 2 weeks):\n${events.join("\n")}`;
+          calendarContext = `\n\nUser's upcoming calendar (next 90 days):\n${events.join("\n")}`;
         }
       }
     } catch {}
