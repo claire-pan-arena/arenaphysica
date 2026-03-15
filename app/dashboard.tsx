@@ -14,43 +14,10 @@ interface CalendarEvent {
 }
 
 const tools = [
-  {
-    name: "Generate Meeting Report",
-    description: "Summarize notes and action items from your last meeting",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-      </svg>
-    ),
-  },
-  {
-    name: "View Customer CRM",
-    description: "Access customer profiles, deal stages, and engagement history",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-      </svg>
-    ),
-  },
-  {
-    name: "Deployment Tracker",
-    description: "Monitor active field deployments and hardware status",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-      </svg>
-    ),
-  },
-  {
-    name: "Design Canvas",
-    description: "Open the RF design workspace for hardware modeling",
-    icon: (
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-      </svg>
-    ),
-  },
+  { name: "Generate Meeting Report" },
+  { name: "View Customer CRM" },
+  { name: "Deployment Tracker" },
+  { name: "Design Canvas" },
 ];
 
 function TypedWelcome({ firstName }: { firstName: string }) {
@@ -106,6 +73,7 @@ export default function Dashboard({ firstName }: { firstName: string }) {
     <div className="relative min-h-screen overflow-hidden">
       {/* Gradient background */}
       <div className="fixed inset-0 bg-gradient-to-b from-[#c5bfb0] via-[#8b9a9e] to-[#2a3040]" />
+      <div className="fixed inset-0 bg-black/30" />
 
       {/* Horizon glow */}
       <div
@@ -163,18 +131,15 @@ export default function Dashboard({ firstName }: { firstName: string }) {
         </div>
 
         {/* Main content */}
-        <div className="mx-auto max-w-7xl px-8 py-10">
+        <div className="px-8 py-10">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
             {/* Left — Tools + Todos */}
             <div className="lg:col-span-3">
               <div className="flex items-end justify-between mb-6">
                 <div>
-                  <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+                  <h2 className="text-[11px] font-medium tracking-widest text-white/50 uppercase">
                     Tools
                   </h2>
-                  <p className="text-sm text-white/40">
-                    Quick access to your most-used workflows
-                  </p>
                 </div>
                 <Link
                   href="/tools"
@@ -187,39 +152,29 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                 {tools.map((tool) => (
                   <button
                     key={tool.name}
-                    className="group flex flex-col gap-3 rounded-lg border border-white/[0.12] bg-white/20 p-6 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
+                    className="group rounded-lg border border-white/[0.12] bg-white/20 px-6 py-5 text-left backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.11]"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="text-white/60">{tool.icon}</div>
-                      <h3 className="text-[14px] font-medium text-white/90">
-                        {tool.name}
-                      </h3>
-                    </div>
-                    <p className="text-xs leading-relaxed text-white/40">
-                      {tool.description}
-                    </p>
+                    <h3 className="text-[14px] font-medium text-white/90">
+                      {tool.name}
+                    </h3>
                   </button>
                 ))}
               </div>
 
               {/* To-dos */}
               <div className="mt-10">
-                <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+                <h2 className="mb-6 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                   To-dos
                 </h2>
-                <p className="mb-6 text-sm text-white/40">
-                  Track tasks and act on calendar-based suggestions
-                </p>
                 <Todos events={events} />
               </div>
             </div>
 
             {/* Right — Upcoming Events (this week) */}
             <div className="lg:col-span-2">
-              <h2 className="mb-1 text-[11px] font-medium tracking-widest text-white/50 uppercase">
+              <h2 className="mb-6 text-[11px] font-medium tracking-widest text-white/50 uppercase">
                 This Week
               </h2>
-              <p className="mb-6 text-sm text-white/40">Upcoming schedule</p>
               <div className="flex flex-col gap-5">
                 {loadingEvents ? (
                   <div className="flex flex-col gap-3">
