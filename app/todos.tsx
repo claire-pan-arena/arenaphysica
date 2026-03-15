@@ -229,12 +229,9 @@ interface EnabledTool {
 
 // Map tool keywords to help match action items to relevant tools
 const TOOL_KEYWORDS: Record<string, string[]> = {
-  "weekly-agenda": ["agenda", "weekly plan", "weekly agenda"],
-  "travel-organizer": ["travel", "flight", "hotel", "logistics", "visit"],
+  "weekly-sync": ["agenda", "weekly plan", "weekly agenda", "weekly sync"],
+  "travel-planner": ["travel", "flight", "hotel", "logistics", "visit"],
   "meeting-report": ["meeting report", "meeting notes", "compile notes", "notes for"],
-  "design-canvas": ["design", "rf design", "hardware"],
-  "customer-crm": ["crm", "customer profile", "deal"],
-  "deployment-tracker": ["deployment", "deploy", "hardware status"],
 };
 
 function findMatchingTool(text: string, tools: EnabledTool[]): EnabledTool | null {

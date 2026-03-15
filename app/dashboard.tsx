@@ -20,6 +20,14 @@ function isExternalMeeting(title: string): boolean {
   return CUSTOMER_PATTERN.test(title);
 }
 
+function extractCustomer(title: string): string {
+  const match = title.match(/anduril|bausch|b\+l|b&l|mercedes|amd/i);
+  if (!match) return "General";
+  const name = match[0].toLowerCase();
+  if (name === "b+l" || name === "b&l") return "Bausch";
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 interface EnabledTool {
   id: string;
   name: string;
@@ -63,6 +71,9 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [modalEvent, setModalEvent] = useState<{ title: string; date: string } | null>(null);
   const [showAddAction, setShowAddAction] = useState(false);
+  const [noteEvent, setNoteEvent] = useState<{ title: string; date: string } | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [calFilter, setCalFilter] = useState<"all" | "external">("all");
   const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
   const [showAllTools, setShowAllTools] = useState(false);
@@ -262,15 +273,26 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                                 )}
                               </div>
                             </div>
-                            <button
-                              onClick={() => setModalEvent({ title: event.title, date: event.isoDate })}
-                              className="mt-0.5 p-1 text-white/25 hover:text-white transition-colors"
-                              title="Create action item"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setNoteEvent({ title: event.title, date: event.isoDate })}
+                                className="mt-0.5 p-1 text-white/25 hover:text-white transition-colors"
+                                title="Add meeting note"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setModalEvent({ title: event.title, date: event.isoDate })}
+                                className="mt-0.5 p-1 text-white/25 hover:text-white transition-colors"
+                                title="Create action item"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
