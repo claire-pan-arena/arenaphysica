@@ -14,11 +14,19 @@ export default function NavHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 backdrop-blur-xl bg-black/30 border-b border-white/10">
-      <Link href="/" className="text-xs tracking-[0.3em] text-white/80 uppercase font-medium hover:text-white transition-colors">
-        Arena Physica
-      </Link>
-      <nav className="flex items-center gap-6">
+    <header className="sticky top-0 z-50 px-8 py-4">
+      <div className="flex items-center justify-between">
+        <Link href="/" className="text-xs tracking-[0.3em] text-white/80 uppercase font-medium hover:text-white transition-colors">
+          Arena Physica
+        </Link>
+        <button
+          onClick={() => signOut()}
+          className="text-[10px] tracking-widest text-white/60 uppercase hover:text-white transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+      <nav className="flex items-center justify-center gap-6 mt-3">
         {navLinks.map((link) => (
           <Link
             key={link.href}
@@ -32,12 +40,6 @@ export default function NavHeader() {
             {link.label}
           </Link>
         ))}
-        <button
-          onClick={() => signOut()}
-          className="text-[10px] tracking-widest text-white/60 uppercase hover:text-white transition-colors"
-        >
-          Sign out
-        </button>
       </nav>
     </header>
   );
