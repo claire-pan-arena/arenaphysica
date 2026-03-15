@@ -6,8 +6,6 @@ import { useEffect, useState } from "react";
 const bootSequence = [
   "ESTABLISHING SECURE FIELD UPLINK........",
   "PROVISIONING DEPLOYMENT TOOLKIT........",
-  "LOADING STRATEGIST RELAY PROTOCOLS........",
-  "CALIBRATING ONSITE GROUND OPS........",
   "STANDING BY FOR DISPATCH........",
 ];
 
