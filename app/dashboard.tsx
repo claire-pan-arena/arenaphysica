@@ -77,12 +77,25 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [calFilter, setCalFilter] = useState<"all" | "external">("external");
   const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
   const [showAllTools, setShowAllTools] = useState(false);
+  const [calendarReauth, setCalendarReauth] = useState(false);
 
   useEffect(() => {
     fetch("/api/calendar")
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          setCalendarReauth(true);
+          setLoadingEvents(false);
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        setEvents(data.events || []);
+        if (!data) return;
+        if (data.error === "reauth") {
+          setCalendarReauth(true);
+        } else {
+          setEvents(data.events || []);
+        }
         setLoadingEvents(false);
       })
       .catch(() => setLoadingEvents(false));
@@ -308,6 +321,13 @@ export default function Dashboard({ firstName }: { firstName: string }) {
                         <div className="h-4 w-40 rounded bg-white/10" />
                       </div>
                     ))}
+                  </div>
+                ) : calendarReauth ? (
+                  <div className="rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl text-center">
+                    <p className="text-sm text-white/40 mb-3">Calendar session expired</p>
+                    <a href="/api/auth/signout" className="text-[10px] tracking-widest text-white/50 uppercase hover:text-white/70 transition-colors">
+                      Sign out and back in to reconnect
+                    </a>
                   </div>
                 ) : events.length === 0 ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.07] p-6 backdrop-blur-xl text-center">

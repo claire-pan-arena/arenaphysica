@@ -8,8 +8,9 @@ export async function GET() {
   }
 
   const accessToken = (session as any).accessToken;
-  if (!accessToken) {
-    return NextResponse.json({ error: "No access token" }, { status: 401 });
+  const sessionError = (session as any).error;
+  if (!accessToken || sessionError === "RefreshTokenError") {
+    return NextResponse.json({ error: "reauth", message: "Session expired — please sign out and back in" }, { status: 401 });
   }
 
   const now = new Date();
@@ -34,6 +35,9 @@ export async function GET() {
   );
 
   if (!res.ok) {
+    if (res.status === 401) {
+      return NextResponse.json({ error: "reauth", message: "Calendar token expired — please sign out and back in" }, { status: 401 });
+    }
     const errorBody = await res.text();
     return NextResponse.json(
       { error: "Failed to fetch calendar", detail: errorBody },
