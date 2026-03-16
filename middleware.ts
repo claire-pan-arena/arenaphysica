@@ -11,7 +11,13 @@ function getCookieName(req: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  // Let the root page handle its own auth
+  // Root domain (arenaphysica.ai) serves landing page — skip auth entirely
+  const host = request.headers.get("host") || "";
+  if (host === "arenaphysica.ai" || host === "www.arenaphysica.ai") {
+    return NextResponse.next();
+  }
+
+  // Let the root page handle its own auth (Ground Control sign-in)
   if (request.nextUrl.pathname === "/") {
     return NextResponse.next();
   }
