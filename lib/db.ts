@@ -114,6 +114,151 @@ export async function initDb() {
     )
   `;
 
+  // ── DS Dashboard tables ──────────────────────────────────────────────
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_deployments (
+      id TEXT PRIMARY KEY,
+      company TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      start_date TEXT,
+      health TEXT NOT NULL DEFAULT 'green',
+      notes TEXT DEFAULT '',
+      owner_email TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_groups (
+      id TEXT PRIMARY KEY,
+      deployment_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      health TEXT NOT NULL DEFAULT 'green',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_people (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT DEFAULT '',
+      company TEXT DEFAULT '',
+      is_champion BOOLEAN DEFAULT FALSE,
+      sentiment TEXT DEFAULT 'neutral',
+      email TEXT DEFAULT '',
+      fun_fact TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      last_contact TEXT,
+      reports_to TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_workstreams (
+      id TEXT PRIMARY KEY,
+      group_id TEXT,
+      name TEXT NOT NULL,
+      owner TEXT DEFAULT '',
+      status TEXT DEFAULT 'todo',
+      priority TEXT DEFAULT 'p1',
+      start_date TEXT,
+      due_date TEXT,
+      description TEXT DEFAULT '',
+      is_internal BOOLEAN DEFAULT FALSE,
+      linked_deployment_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_tasks (
+      id TEXT PRIMARY KEY,
+      workstream_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT DEFAULT 'todo',
+      owner TEXT DEFAULT '',
+      due_date TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_meetings (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      type TEXT DEFAULT 'Weekly Check-in',
+      agenda_sent BOOLEAN DEFAULT FALSE,
+      recap_sent BOOLEAN DEFAULT FALSE,
+      sentiment TEXT DEFAULT 'neutral',
+      notes TEXT DEFAULT '',
+      competitive_intel TEXT DEFAULT '',
+      expansion_signals TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_meeting_attendees (
+      meeting_id TEXT NOT NULL,
+      person_id TEXT NOT NULL,
+      PRIMARY KEY (meeting_id, person_id)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_meeting_action_items (
+      id TEXT PRIMARY KEY,
+      meeting_id TEXT NOT NULL,
+      text TEXT NOT NULL,
+      done BOOLEAN DEFAULT FALSE,
+      owner TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_meeting_topics (
+      id TEXT PRIMARY KEY,
+      meeting_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_weekly_snapshots (
+      id TEXT PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      week_of TEXT NOT NULL,
+      reflections TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_weekly_snapshot_items (
+      id TEXT PRIMARY KEY,
+      snapshot_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      priority TEXT DEFAULT 'p1',
+      notes TEXT DEFAULT ''
+    )
+  `;
+
   // Migrate enabled_tools from old IDs to new IDs (before deleting old tools)
   await sql`INSERT INTO enabled_tools (user_email, tool_id) SELECT user_email, 'travel-planner' FROM enabled_tools WHERE tool_id = 'travel-organizer' ON CONFLICT DO NOTHING`;
   await sql`INSERT INTO enabled_tools (user_email, tool_id) SELECT user_email, 'weekly-sync' FROM enabled_tools WHERE tool_id = 'weekly-agenda' ON CONFLICT DO NOTHING`;
