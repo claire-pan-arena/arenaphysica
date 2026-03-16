@@ -9,6 +9,7 @@ const navLinks = [
   { href: "/kb", label: "Knowledge Base" },
   { href: "/tools", label: "Tools Library" },
   { href: "/crm", label: "CRM" },
+  { href: "/ds", label: "DS Dashboard" },
 ];
 
 export default function NavHeader() {
