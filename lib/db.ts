@@ -179,6 +179,16 @@ export async function initDb() {
   // Phase 4 migration: add company_id to people
   await sql`ALTER TABLE ds_people ADD COLUMN IF NOT EXISTS company_id TEXT`;
 
+  // People/Groups refactor: add deployment_id, make group_id optional
+  await sql`ALTER TABLE ds_people ADD COLUMN IF NOT EXISTS deployment_id TEXT`;
+  await sql`ALTER TABLE ds_people ALTER COLUMN group_id DROP NOT NULL`;
+  await sql`ALTER TABLE ds_meetings ADD COLUMN IF NOT EXISTS deployment_id TEXT`;
+  await sql`ALTER TABLE ds_meetings ALTER COLUMN group_id DROP NOT NULL`;
+
+  // Backfill deployment_id from group chain for existing records
+  await sql`UPDATE ds_people SET deployment_id = (SELECT deployment_id FROM ds_groups WHERE ds_groups.id = ds_people.group_id) WHERE deployment_id IS NULL AND group_id IS NOT NULL`;
+  await sql`UPDATE ds_meetings SET deployment_id = (SELECT deployment_id FROM ds_groups WHERE ds_groups.id = ds_meetings.group_id) WHERE deployment_id IS NULL AND group_id IS NOT NULL`;
+
   await sql`
     CREATE TABLE IF NOT EXISTS ds_workstreams (
       id TEXT PRIMARY KEY,

@@ -214,24 +214,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  // Cascade delete children
-  await sql`DELETE FROM ds_people WHERE group_id = ${id}`;
-
-  const workstreams = await sql`SELECT id FROM ds_workstreams WHERE group_id = ${id}`;
-  const wsIds = workstreams.map((w: any) => w.id);
-  if (wsIds.length > 0) {
-    await sql`DELETE FROM ds_tasks WHERE workstream_id = ANY(${wsIds})`;
-  }
-  await sql`DELETE FROM ds_workstreams WHERE group_id = ${id}`;
-
-  const meetings = await sql`SELECT id FROM ds_meetings WHERE group_id = ${id}`;
-  const meetingIds = meetings.map((m: any) => m.id);
-  if (meetingIds.length > 0) {
-    await sql`DELETE FROM ds_meeting_attendees WHERE meeting_id = ANY(${meetingIds})`;
-    await sql`DELETE FROM ds_meeting_action_items WHERE meeting_id = ANY(${meetingIds})`;
-    await sql`DELETE FROM ds_meeting_topics WHERE meeting_id = ANY(${meetingIds})`;
-  }
-  await sql`DELETE FROM ds_meetings WHERE group_id = ${id}`;
+  // Soft-unlink children (don't delete — people and meetings belong to the deployment, not the group)
+  await sql`UPDATE ds_people SET group_id = NULL WHERE group_id = ${id}`;
+  await sql`UPDATE ds_meetings SET group_id = NULL WHERE group_id = ${id}`;
+  await sql`UPDATE ds_workstreams SET group_id = NULL WHERE group_id = ${id}`;
 
   await sql`DELETE FROM ds_groups WHERE id = ${id}`;
 

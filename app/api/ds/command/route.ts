@@ -180,10 +180,10 @@ export async function GET(request: NextRequest) {
 
   // --- relationship_alerts: people with last_contact > 7 days ago ---
   let allPeople: any[] = [];
-  if (groupIds.length > 0) {
+  if (deploymentIds.length > 0) {
     allPeople = await sql`
       SELECT * FROM ds_people
-      WHERE group_id = ANY(${groupIds})
+      WHERE deployment_id = ANY(${deploymentIds})
     `;
   }
 
@@ -210,13 +210,13 @@ export async function GET(request: NextRequest) {
 
   // --- expansion_signals and competitive_intel from meetings ---
   let allMeetings: any[] = [];
-  if (groupIds.length > 0) {
+  if (deploymentIds.length > 0) {
     allMeetings = await sql`
       SELECT m.*, g.name as group_name, d.company
       FROM ds_meetings m
-      JOIN ds_groups g ON m.group_id = g.id
-      JOIN ds_deployments d ON g.deployment_id = d.id
-      WHERE m.group_id = ANY(${groupIds})
+      LEFT JOIN ds_groups g ON m.group_id = g.id
+      LEFT JOIN ds_deployments d ON m.deployment_id = d.id
+      WHERE m.deployment_id = ANY(${deploymentIds})
         AND (m.expansion_signals != '' OR m.competitive_intel != '')
       ORDER BY m.date DESC
       LIMIT 20
@@ -226,17 +226,18 @@ export async function GET(request: NextRequest) {
   const expansion_signals: string[] = [];
   const competitive_intel: string[] = [];
   for (const m of allMeetings) {
+    const label = m.group_name ? `${m.company} / ${m.group_name}` : (m.company || "Unknown");
     if (m.expansion_signals) {
       const signals = m.expansion_signals.split("\n").filter(Boolean);
       for (const s of signals) {
-        const entry = `${m.company} / ${m.group_name}: ${s}`;
+        const entry = `${label}: ${s}`;
         if (!expansion_signals.includes(entry)) expansion_signals.push(entry);
       }
     }
     if (m.competitive_intel) {
       const intel = m.competitive_intel.split("\n").filter(Boolean);
       for (const i of intel) {
-        const entry = `${m.company} / ${m.group_name}: ${i}`;
+        const entry = `${label}: ${i}`;
         if (!competitive_intel.includes(entry)) competitive_intel.push(entry);
       }
     }

@@ -97,11 +97,12 @@ export async function POST(request: NextRequest) {
 
   if (depIds.length > 0) {
     groups = await sql`SELECT * FROM ds_groups WHERE deployment_id = ANY(${depIds})`;
+    // Use deployment_id directly for people and meetings (supports ungrouped records)
+    people = await sql`SELECT * FROM ds_people WHERE deployment_id = ANY(${depIds})`;
+    meetings = await sql`SELECT * FROM ds_meetings WHERE deployment_id = ANY(${depIds}) ORDER BY date DESC LIMIT 20`;
     const gIds = groups.map((g: any) => g.id);
     if (gIds.length > 0) {
-      people = await sql`SELECT * FROM ds_people WHERE group_id = ANY(${gIds})`;
       workstreams = await sql`SELECT * FROM ds_workstreams WHERE group_id = ANY(${gIds})`;
-      meetings = await sql`SELECT * FROM ds_meetings WHERE group_id = ANY(${gIds}) ORDER BY date DESC LIMIT 20`;
     }
     const wsIds = workstreams.map((w: any) => w.id);
     if (wsIds.length > 0) {

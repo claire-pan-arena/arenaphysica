@@ -290,17 +290,21 @@ export function GroupForm({
 export function PersonForm({
   person,
   groupId,
+  deploymentId: propDeploymentId,
   onClose,
   onSaved,
 }: {
   person?: Person | null;
   groupId?: string;
+  deploymentId?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(person?.name || "");
+  const [personCompany, setPersonCompany] = useState(person?.company || "");
   const [role, setRole] = useState(person?.role || "");
   const [email, setEmail] = useState(person?.email || "");
+  const [deploymentId, setDeploymentId] = useState(person?.deployment_id || propDeploymentId || "");
   const [groupIdVal, setGroupIdVal] = useState(person?.group_id || groupId || "");
   const [isChampion, setIsChampion] = useState(person?.is_champion || false);
   const [sentiment, setSentiment] = useState(person?.sentiment || "neutral");
@@ -308,33 +312,59 @@ export function PersonForm({
   const [notes, setNotes] = useState(person?.notes || "");
   const [lastContact, setLastContact] = useState(person?.last_contact || "");
   const [reportsTo, setReportsTo] = useState(person?.reports_to || "");
+  const [deployments, setDeployments] = useState<{ value: string; label: string }[]>([]);
   const [groups, setGroups] = useState<{ value: string; label: string }[]>([]);
   const [people, setPeople] = useState<{ value: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
+  // Fetch deployments on mount
   useEffect(() => {
-    fetch("/api/ds/groups")
+    fetch("/api/ds/deployments")
       .then((r) => r.json())
       .then((d) => {
-        const list = d.groups || d || [];
-        setGroups(list.map((g: any) => ({ value: g.id, label: g.name })));
-      })
-      .catch(() => {});
-    fetch("/api/ds/people")
-      .then((r) => r.json())
-      .then((d) => {
-        const list = d.people || d || [];
-        setPeople(list.filter((p: any) => p.id !== person?.id).map((p: any) => ({ value: p.id, label: p.name })));
+        const list = d.deployments || d || [];
+        setDeployments(list.map((dep: any) => ({
+          value: dep.id,
+          label: dep.name ? `${dep.name} (${dep.company})` : dep.company,
+        })));
       })
       .catch(() => {});
   }, []);
 
-  const [error, setError] = useState("");
+  // Fetch groups filtered by deployment, and people for Reports To
+  useEffect(() => {
+    if (deploymentId) {
+      fetch(`/api/ds/groups?deployment_id=${deploymentId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const list = d.groups || d || [];
+          setGroups(list.map((g: any) => ({ value: g.id, label: g.name })));
+        })
+        .catch(() => setGroups([]));
+      fetch(`/api/ds/people?deployment_id=${deploymentId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const list = d.people || d || [];
+          setPeople(list.filter((p: any) => p.id !== person?.id).map((p: any) => ({ value: p.id, label: p.name })));
+        })
+        .catch(() => setPeople([]));
+    } else {
+      setGroups([]);
+      fetch("/api/ds/people")
+        .then((r) => r.json())
+        .then((d) => {
+          const list = d.people || d || [];
+          setPeople(list.filter((p: any) => p.id !== person?.id).map((p: any) => ({ value: p.id, label: p.name })));
+        })
+        .catch(() => setPeople([]));
+    }
+  }, [deploymentId]);
 
   const save = async () => {
     setError("");
     if (!name.trim()) { setError("Name is required."); return; }
-    if (!groupIdVal) { setError("Please select a group. If you don't have one yet, create a deployment first, then add a group to it."); return; }
+    if (!deploymentId) { setError("Please select a deployment."); return; }
     setSaving(true);
     const method = person ? "PUT" : "POST";
     const res = await fetch("/api/ds/people", {
@@ -345,7 +375,9 @@ export function PersonForm({
         name,
         role,
         email,
-        group_id: groupIdVal,
+        company: personCompany,
+        deployment_id: deploymentId,
+        group_id: groupIdVal || null,
         is_champion: isChampion,
         sentiment,
         fun_fact: funFact,
@@ -371,21 +403,29 @@ export function PersonForm({
             {error}
           </div>
         )}
-        {groups.length === 0 && !person && (
+        {deployments.length === 0 && !person && (
           <div className="col-span-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-700">
-            You need to create a deployment and add a group to it before adding people. Go to Deployments → click a deployment → Add Group.
+            You need to create a deployment first. Go to Deployments → + New Deployment.
           </div>
         )}
         <InputField label="Name" value={name} onChange={setName} required />
+        <InputField label="Company" value={personCompany} onChange={setPersonCompany} placeholder="e.g., Anduril, JMPRC" />
+        <InputField
+          label="Deployment"
+          type="select"
+          value={deploymentId}
+          onChange={(v) => { setDeploymentId(v); setGroupIdVal(""); }}
+          options={deployments}
+          required
+        />
         <InputField label="Role" value={role} onChange={setRole} />
         <InputField label="Email" type="email" value={email} onChange={setEmail} />
         <InputField
-          label="Group"
+          label="Group (optional — for org chart)"
           type="select"
           value={groupIdVal}
           onChange={setGroupIdVal}
           options={groups}
-          required
         />
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Champion</label>

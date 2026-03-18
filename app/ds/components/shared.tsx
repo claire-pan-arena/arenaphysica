@@ -328,6 +328,7 @@ export interface Deployment {
   start_date: string;
   notes?: string;
   groups?: Group[];
+  people_count?: number;
 }
 
 export interface Group {
@@ -348,8 +349,10 @@ export interface Person {
   name: string;
   role: string;
   email: string;
-  group_id: string;
+  group_id?: string;
   group_name?: string;
+  deployment_id?: string;
+  deployment_name?: string;
   company?: string;
   is_champion: boolean;
   sentiment: string;
@@ -391,8 +394,10 @@ export interface Task {
 export interface Meeting {
   id: string;
   date: string;
-  group_id: string;
+  group_id?: string;
   group_name?: string;
+  deployment_id?: string;
+  deployment_name?: string;
   company?: string;
   type: string;
   attendees: string[];
