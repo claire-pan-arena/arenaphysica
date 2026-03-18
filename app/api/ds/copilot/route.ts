@@ -35,30 +35,52 @@ or for people:
 {"action":"create_people","data":{"deployment_id":"...","group_name":"...","people":[{"name":"...","role":"...","is_champion":false}]}}
 \`\`\``;
 
-const IMPORT_PROMPT = `You are in NOTION IMPORT MODE. The DS has shared a Notion page. Your job is to extract structured data from it.
+const IMPORT_PROMPT = `You are in NOTION IMPORT MODE. Follow this EXACT multi-step flow. The current step number will be indicated below.
 
-## Hard Rules
-1. Every meeting MUST have a date. If you can't determine it from the title or content, ASK.
-2. Every meeting MUST have at least one external stakeholder attendee. Identify them and ask the DS to confirm.
-3. The full raw notes must be preserved — you're extracting structure ON TOP of the raw notes, not replacing them.
-4. If you can't determine which deployment this belongs to, ASK. Include a "+ Add New Deployment" option.
-5. Proactively ask: "Any context about these contacts that isn't in the notes? (e.g., communication preferences, personal interests, things to avoid)"
+## STEP 1: Extract & Ask Questions
+You MUST:
+1. Extract from the Notion content: people (name, role), meeting date, meeting type, topics discussed, action items (with owners if identifiable), sentiment (infer from tone), expansion signals (mentions of wanting more, new use cases), competitive intel (mentions of competitors)
+2. Present what you found in a structured format with headers and bullet points
+3. Ask SPECIFIC targeted questions — do NOT ask open-ended questions:
+   - "Which deployment does this belong to?" — list the user's existing deployments
+   - For each new person NOT already in the dashboard: "Should I create a profile for [Name] ([Role])? Is this person a champion?"
+   - If the meeting date is ambiguous or missing: "What date was this meeting?"
+   - "Any context about these contacts not in the notes? (communication preferences, personal interests, things to avoid)"
+4. Do NOT output any \`\`\`json action blocks in Step 1. You are gathering information.
+5. At the END of your response, output a \`\`\`questions block with structured UI elements the frontend will render as interactive dropdowns, buttons, and text inputs. The DS can click to answer instead of typing. Format:
+\`\`\`questions
+[{"id":"deployment","label":"Which deployment does this belong to?","type":"select","options":[LIST_DEPLOYMENTS_HERE],"allow_custom":true,"custom_placeholder":"+ Create new deployment..."},{"id":"person_NAME","label":"Create profile for NAME (ROLE)?","type":"buttons","options":[{"value":"yes","label":"Yes, create"},{"value":"champion","label":"Yes + Champion"},{"value":"skip","label":"Skip"}]},{"id":"date_confirm","label":"Meeting date: DATE — correct?","type":"buttons","options":[{"value":"yes","label":"Correct"},{"value":"no","label":"Different date"}]},{"id":"tribal","label":"Any tribal knowledge about these contacts?","type":"text","placeholder":"e.g., Parker prefers Slack, Zak loves fishing..."}]
+\`\`\`
+Populate the deployment options using the user's actual deployment IDs and names from the dashboard state.
 
-## What to Extract
-- **People**: name, role, company (from context), whether they seem like a champion
-- **Meeting date**: from title, content, or ask
-- **Meeting type**: kickoff, weekly_sync, qbr, ad_hoc, internal, executive
-- **Sentiment**: positive, neutral, negative (infer from tone)
-- **Topics**: main discussion points
-- **Action items**: with owner if identifiable
-- **Expansion signals**: mentions of wanting more, new use cases, etc.
-- **Competitive intel**: mentions of competitors, alternative solutions
+## STEP 2: Present Final Summary for Confirmation
+After the user answers your questions:
+1. Present a clean summary of EXACTLY what will be saved:
+   - 📋 **Meeting**: [date], [type], [deployment name], sentiment: [value]
+   - 👥 **People to create**: [list with name, role, champion status]
+   - 👥 **People to update**: [list]
+   - ✅ **Action items**: [list with owners]
+   - 📝 **Topics**: [list]
+   - 📈 **Expansion signals**: [list] (or "None detected")
+   - 🔍 **Competitive intel**: [list] (or "None detected")
+2. Ask: "Ready to save all of this to the dashboard?"
+3. Do NOT output any \`\`\`json action blocks in Step 2.
 
-Present your extraction as a structured summary and ask clarifying questions.
-When the DS confirms, output a JSON block that the frontend can parse:
+## STEP 3: Save
+When the user confirms (says yes, save, confirm, looks good, go ahead, etc.):
+1. Output the save_import JSON action block with ALL the confirmed data:
 \`\`\`json
-{"action":"save_import","data":{"import_id":"...","deployment_id":"...","group_id":"...","meeting":{...},"people":[...],"action_items":[...],"topics":[...]}}
-\`\`\``;
+{"action":"save_import","data":{"import_id":"IMPORT_ID","deployment_id":"DEP_ID","meeting":{"date":"YYYY-MM-DD","type":"TYPE","sentiment":"VALUE","notes":"FULL_RAW_NOTES","competitive_intel":["..."],"expansion_signals":["..."]},"people":[{"name":"...","role":"...","company":"...","is_champion":false,"fun_fact":"...","notes":"..."}],"action_items":[{"text":"...","owner":"..."}],"topics":["..."]}}
+\`\`\`
+2. After saving, briefly confirm what was created.
+
+## Hard Rules (ALL STEPS)
+- Every meeting MUST have a date. If you can't find one, ASK in Step 1.
+- Every meeting MUST have at least one attendee. If none found, ASK.
+- Deployment assignment is MANDATORY. Always ask in Step 1.
+- Preserve the FULL raw Notion content in the meeting notes field — you are extracting structure on top of the raw notes, not replacing them.
+- Always ask about tribal knowledge for new contacts.
+- Cross-reference people found in the notes with the dashboard's existing people list. If a person already exists, note that you'll update their record rather than creating a duplicate.`;
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -159,6 +181,24 @@ export async function POST(request: NextRequest) {
   const isOnboarding = deployments.length === 0 && !notionContext;
   const isImportMode = mode === "import" || (notionContext && /import|upload|ingest|add.*notes/i.test(message));
 
+  // ── Detect import step (multi-turn flow) ──
+  let importStep = 1;
+  if (isImportMode && conversation_history && Array.isArray(conversation_history) && conversation_history.length > 0) {
+    const hasExtraction = conversation_history.some((m: any) =>
+      m.role === "assistant" && /extracted|found.*contact|which deployment|people.*found|meeting.*date/i.test(m.text || m.content || "")
+    );
+    if (hasExtraction) {
+      importStep = 2;
+      const hasSummary = conversation_history.some((m: any) =>
+        m.role === "assistant" && /ready to save|confirm.*save|what will be saved|summary.*what/i.test(m.text || m.content || "")
+      );
+      const lastUserMsg = message.trim().toLowerCase();
+      if (hasSummary && /^(yes|save|confirm|looks good|go ahead|do it|ship it|yep|sure|ok|approved)/.test(lastUserMsg)) {
+        importStep = 3;
+      }
+    }
+  }
+
   // ── Build system prompt ──
   let systemPrompt = DS_GUIDE_EXCERPT;
 
@@ -166,6 +206,7 @@ export async function POST(request: NextRequest) {
     systemPrompt += `\n\n${ONBOARDING_PROMPT}`;
   } else if (isImportMode) {
     systemPrompt += `\n\n${IMPORT_PROMPT}`;
+    systemPrompt += `\n\nYou are currently on STEP ${importStep} of the import flow. Follow the instructions for STEP ${importStep} exactly.`;
   }
 
   systemPrompt += `\n\nYou are assisting ${userName} (${userEmail}).`;
@@ -238,13 +279,28 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await apiRes.json();
-    const reply = data.content?.[0]?.text || "I couldn't generate a response.";
+    let reply = data.content?.[0]?.text || "I couldn't generate a response.";
+
+    // Parse questions block from Claude's response (for interactive UI)
+    let questions: any[] = [];
+    const questionsMatch = reply.match(/```questions\s*\n([\s\S]*?)```/);
+    if (questionsMatch) {
+      try {
+        questions = JSON.parse(questionsMatch[1]);
+      } catch {
+        // If JSON parse fails, ignore — questions will render as text
+      }
+      // Remove the questions block from the visible reply text
+      reply = reply.replace(/```questions\s*\n[\s\S]*?```/, "").trim();
+    }
 
     return NextResponse.json({
       reply,
       mode: isOnboarding ? "onboarding" : isImportMode ? "import" : "chat",
       import_id: importId || undefined,
+      import_step: isImportMode ? importStep : undefined,
       has_notion_context: !!notionContext,
+      questions: questions.length > 0 ? questions : undefined,
     });
   } catch (e: any) {
     console.error("[copilot] Error:", e.message);
