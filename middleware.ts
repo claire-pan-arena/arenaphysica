@@ -11,6 +11,11 @@ function getCookieName(req: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  // Skip all auth in local development — pages and API routes handle dev bypasses themselves
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next();
+  }
+
   // Root domain (arenaphysica.ai) serves landing page — skip auth entirely
   const host = request.headers.get("host") || "";
   if (host === "arenaphysica.ai" || host === "www.arenaphysica.ai") {
