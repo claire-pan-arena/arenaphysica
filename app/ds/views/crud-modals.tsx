@@ -329,10 +329,15 @@ export function PersonForm({
       .catch(() => {});
   }, []);
 
+  const [error, setError] = useState("");
+
   const save = async () => {
+    setError("");
+    if (!name.trim()) { setError("Name is required."); return; }
+    if (!groupIdVal) { setError("Please select a group. If you don't have one yet, create a deployment first, then add a group to it."); return; }
     setSaving(true);
     const method = person ? "PUT" : "POST";
-    await fetch("/api/ds/people", {
+    const res = await fetch("/api/ds/people", {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -349,13 +354,28 @@ export function PersonForm({
         reports_to: reportsTo,
       }),
     });
+    const data = await res.json();
     setSaving(false);
+    if (!res.ok) {
+      setError(data.error || "Failed to save person.");
+      return;
+    }
     onSaved();
   };
 
   return (
     <Modal open onClose={onClose} title={person ? "Edit Person" : "Add Person"} wide>
       <div className="grid grid-cols-2 gap-4">
+        {error && (
+          <div className="col-span-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-[12px] text-red-700">
+            {error}
+          </div>
+        )}
+        {groups.length === 0 && !person && (
+          <div className="col-span-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-700">
+            You need to create a deployment and add a group to it before adding people. Go to Deployments → click a deployment → Add Group.
+          </div>
+        )}
         <InputField label="Name" value={name} onChange={setName} required />
         <InputField label="Role" value={role} onChange={setRole} />
         <InputField label="Email" type="email" value={email} onChange={setEmail} />
@@ -365,6 +385,7 @@ export function PersonForm({
           value={groupIdVal}
           onChange={setGroupIdVal}
           options={groups}
+          required
         />
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Champion</label>

@@ -201,30 +201,42 @@ export async function POST(request: NextRequest) {
   messages.push({ role: "user", content: message.trim() });
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-opus-4-6-20250610",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages,
-      }),
-    });
+    // Try preferred model, fall back if unavailable
+    const MODELS = ["claude-sonnet-4-20250514"];
+    let lastError = "";
+    let apiRes: Response | null = null;
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("[copilot] API error:", err);
+    for (const model of MODELS) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages,
+        }),
+      });
+
+      if (res.ok) {
+        apiRes = res;
+        break;
+      }
+      lastError = await res.text();
+      console.error(`[copilot] API error with model ${model}:`, lastError);
+    }
+
+    if (!apiRes) {
       return NextResponse.json({
-        reply: "Co-Pilot encountered an error. Please try again.",
+        reply: `Co-Pilot API error: ${lastError.slice(0, 300)}. Check that your ANTHROPIC_API_KEY is valid and has access to the requested model.`,
       });
     }
 
-    const data = await res.json();
+    const data = await apiRes.json();
     const reply = data.content?.[0]?.text || "I couldn't generate a response.";
 
     return NextResponse.json({

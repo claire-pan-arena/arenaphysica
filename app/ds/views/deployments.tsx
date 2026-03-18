@@ -42,7 +42,10 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Drill-down state
+  // Drill-down state: deployment level
+  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
+
+  // Drill-down state: group level
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [groupWorkstreams, setGroupWorkstreams] = useState<Workstream[]>([]);
   const [groupPeople, setGroupPeople] = useState<Person[]>([]);
@@ -97,6 +100,134 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
     if (selectedGroup) drillIntoGroup(selectedGroup);
   };
 
+  // ─── Level 1.5: Deployment detail ───
+  if (selectedDeployment && !selectedGroup) {
+    const dep = selectedDeployment;
+    const depGroups = dep.groups || [];
+
+    return (
+      <div>
+        {/* Back button */}
+        <button
+          onClick={() => setSelectedDeployment(null)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Deployments
+        </button>
+
+        {/* Deployment header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <HealthDot health={dep.health} size={14} />
+              <h2 className="text-lg font-semibold text-gray-900">
+                {dep.name || dep.company}
+              </h2>
+              <StatusBadge status={dep.status} />
+            </div>
+            {dep.name && (
+              <p className="text-sm text-gray-500 ml-7 mt-0.5">{dep.company}</p>
+            )}
+            {dep.start_date && (
+              <p className="text-[11px] text-gray-400 ml-7 mt-0.5">Started {dep.start_date}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setEditDeployment(dep);
+                setShowDeploymentForm(true);
+              }}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => {
+                setShowGroupForm(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Group
+            </button>
+          </div>
+        </div>
+
+        {/* Notes */}
+        {dep.notes && (
+          <Card className="mb-4">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">Notes</h4>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{dep.notes}</p>
+          </Card>
+        )}
+
+        {/* Groups */}
+        <SectionHeader
+          icon={<Building2 className="w-4 h-4" />}
+          title="Groups"
+          count={depGroups.length}
+        />
+
+        {depGroups.length === 0 ? (
+          <EmptyState message="No groups yet. Add a group to organize your customer contacts and workstreams." />
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {depGroups.map((group) => (
+              <Card
+                key={group.id}
+                hover
+                onClick={() => drillIntoGroup({ ...group, company: dep.company })}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <HealthDot health={group.health} size={10} />
+                  <h4 className="text-sm font-semibold text-gray-900">{group.name}</h4>
+                </div>
+                {group.description && (
+                  <p className="text-[11px] text-gray-500 mb-3 line-clamp-2">{group.description}</p>
+                )}
+                <div className="flex items-center gap-4 text-[11px] text-gray-400">
+                  <span>{group.workstream_count || 0} workstreams</span>
+                  <span>{group.people_count || 0} people</span>
+                  {(group.completion_pct ?? 0) > 0 && (
+                    <span>{group.completion_pct}% complete</span>
+                  )}
+                </div>
+                {group.champions && group.champions.length > 0 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Star className="w-3 h-3 text-amber-400" />
+                    <span className="text-[10px] text-amber-600">{group.champions.join(", ")}</span>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* CRUD modals */}
+        {showDeploymentForm && (
+          <DeploymentForm
+            deployment={editDeployment}
+            onClose={() => { setShowDeploymentForm(false); setEditDeployment(null); }}
+            onSaved={() => {
+              handleSaved();
+              // Refresh the selected deployment
+              fetchDeployments();
+              setSelectedDeployment(null);
+            }}
+          />
+        )}
+        {showGroupForm && (
+          <GroupForm
+            deploymentId={dep.id}
+            onClose={() => setShowGroupForm(false)}
+            onSaved={handleSaved}
+          />
+        )}
+      </div>
+    );
+  }
+
   // ─── Level 2: Group detail ───
   if (selectedGroup) {
     // Build a simple org tree
@@ -145,7 +276,7 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to Deployments
+          {selectedDeployment ? `Back to ${selectedDeployment.name || selectedDeployment.company}` : "Back to Deployments"}
         </button>
 
         {/* Header */}
@@ -293,54 +424,33 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
       {deployments.length === 0 ? (
         <EmptyState message="No deployments yet. Create one to get started." />
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {deployments.map((dep) => (
-            <Card key={dep.id}>
-              <div className="flex items-center gap-3 mb-3">
-                <Building2 className="w-5 h-5 text-gray-400" />
+            <Card
+              key={dep.id}
+              hover
+              onClick={() => setSelectedDeployment(dep)}
+            >
+              <div className="flex items-center gap-3">
                 <HealthDot health={dep.health} />
-                <h3 className="text-base font-semibold text-gray-900">{dep.company}</h3>
-                <StatusBadge status={dep.status} />
-                <span className="text-[11px] text-gray-400 ml-auto">
-                  Started {dep.start_date}
-                </span>
-              </div>
-
-              {/* Groups grid */}
-              {dep.groups && dep.groups.length > 0 && (
-                <div className="grid grid-cols-3 gap-3 mt-3">
-                  {dep.groups.map((group) => (
-                    <div
-                      key={group.id}
-                      onClick={() => drillIntoGroup({ ...group, company: dep.company })}
-                      className="rounded-lg border border-gray-100 bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-200 transition-all"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <HealthDot health={group.health} size={8} />
-                        <span className="text-sm font-medium text-gray-900">{group.name}</span>
-                      </div>
-                      {group.description && (
-                        <p className="text-[11px] text-gray-500 mb-2 line-clamp-1">
-                          {group.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-[10px] text-gray-400">
-                        <span>{group.workstream_count || 0} workstreams</span>
-                        <span>{group.people_count || 0} people</span>
-                        <span>{group.completion_pct || 0}%</span>
-                      </div>
-                      {group.champions && group.champions.length > 0 && (
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <Star className="w-3 h-3 text-amber-400" />
-                          <span className="text-[10px] text-amber-600">
-                            {group.champions.join(", ")}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {dep.name || dep.company}
+                    </h3>
+                    <StatusBadge status={dep.status} />
+                  </div>
+                  {dep.name && (
+                    <p className="text-[12px] text-gray-500">{dep.company}</p>
+                  )}
                 </div>
-              )}
+                <div className="flex items-center gap-4 text-[11px] text-gray-400 shrink-0">
+                  {dep.groups && dep.groups.length > 0 && (
+                    <span>{dep.groups.length} group{dep.groups.length !== 1 ? "s" : ""}</span>
+                  )}
+                  {dep.start_date && <span>Started {dep.start_date}</span>}
+                </div>
+              </div>
             </Card>
           ))}
         </div>
