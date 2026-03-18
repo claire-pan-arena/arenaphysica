@@ -84,12 +84,17 @@ async function executeAction(action: { action: string; data: any }): Promise<str
         }
         if (action.data.people) {
           for (const person of action.data.people) {
-            await fetch("/api/ds/people", {
+            const res = await fetch("/api/ds/people", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ...person, deployment_id: action.data.deployment_id, group_id: groupId || null }),
             });
-            results.push(`Added ${person.name}`);
+            if (res.ok) {
+              results.push(`Added ${person.name}`);
+            } else {
+              const err = await res.json();
+              results.push(`Failed to add ${person.name}: ${err.error || "unknown error"}`);
+            }
           }
         }
         return results.join(", ");
@@ -332,7 +337,7 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           message: text.trim(),
           conversation_history: history,
-          mode: notionDetected && /import|upload|ingest|add/i.test(text) ? "import" : undefined,
+          mode: notionDetected ? "import" : undefined,
         }),
       });
       const data = await res.json();

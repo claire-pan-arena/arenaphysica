@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
   await initDb();
 
   const groupId = request.nextUrl.searchParams.get("group_id");
+  const deploymentId = request.nextUrl.searchParams.get("deployment_id");
   const personId = request.nextUrl.searchParams.get("person_id");
+  const limit = request.nextUrl.searchParams.get("limit");
 
   let meetings;
   if (groupId) {
@@ -25,31 +27,42 @@ export async function GET(request: NextRequest) {
     if (dep.length === 0 || dep[0].owner_email !== session.user.email) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
-
-    meetings = await sql`
-      SELECT * FROM ds_meetings
-      WHERE group_id = ${groupId}
-      ORDER BY date DESC
-    `;
+    meetings = await sql`SELECT * FROM ds_meetings WHERE group_id = ${groupId} ORDER BY date DESC`;
+  } else if (deploymentId) {
+    // Direct deployment filter
+    const dep = await sql`SELECT owner_email FROM ds_deployments WHERE id = ${deploymentId}`;
+    if (dep.length === 0 || dep[0].owner_email !== session.user.email) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+    meetings = await sql`SELECT * FROM ds_meetings WHERE deployment_id = ${deploymentId} ORDER BY date DESC`;
   } else if (personId) {
-    // Get meetings where this person is an attendee
+    // Get meetings where this person is an attendee (support both deployment_id and group chain)
     meetings = await sql`
-      SELECT m.* FROM ds_meetings m
+      SELECT DISTINCT m.* FROM ds_meetings m
       JOIN ds_meeting_attendees ma ON ma.meeting_id = m.id
-      JOIN ds_groups g ON m.group_id = g.id
-      JOIN ds_deployments d ON g.deployment_id = d.id
+      LEFT JOIN ds_deployments d1 ON m.deployment_id = d1.id
+      LEFT JOIN ds_groups g ON m.group_id = g.id
+      LEFT JOIN ds_deployments d2 ON g.deployment_id = d2.id
       WHERE ma.person_id = ${personId}
-        AND d.owner_email = ${session.user.email}
+        AND (d1.owner_email = ${session.user.email} OR d2.owner_email = ${session.user.email})
       ORDER BY m.date DESC
     `;
   } else {
+    // All meetings (support both deployment_id and legacy group chain)
     meetings = await sql`
-      SELECT m.* FROM ds_meetings m
-      JOIN ds_groups g ON m.group_id = g.id
-      JOIN ds_deployments d ON g.deployment_id = d.id
-      WHERE d.owner_email = ${session.user.email}
+      SELECT DISTINCT m.* FROM ds_meetings m
+      LEFT JOIN ds_deployments d1 ON m.deployment_id = d1.id
+      LEFT JOIN ds_groups g ON m.group_id = g.id
+      LEFT JOIN ds_deployments d2 ON g.deployment_id = d2.id
+      WHERE d1.owner_email = ${session.user.email}
+         OR d2.owner_email = ${session.user.email}
       ORDER BY m.date DESC
     `;
+  }
+
+  // Apply limit if specified
+  if (limit) {
+    meetings = meetings.slice(0, parseInt(limit, 10));
   }
 
   if (meetings.length === 0) {
@@ -103,21 +116,33 @@ export async function GET(request: NextRequest) {
   }
 
   // Get group names and company names for display
-  const groupIds = [...new Set(meetings.map((m: any) => m.group_id))];
-  const groupRows = await sql`
-    SELECT g.id, g.name, d.company FROM ds_groups g
-    JOIN ds_deployments d ON g.deployment_id = d.id
-    WHERE g.id = ANY(${groupIds})
-  `;
-  const groupMap: Record<string, { name: string; company: string }> = {};
-  for (const g of groupRows) groupMap[g.id] = { name: g.name, company: g.company };
+  const groupIds = [...new Set(meetings.map((m: any) => m.group_id).filter(Boolean))];
+  let groupMap: Record<string, { name: string; company: string }> = {};
+  if (groupIds.length > 0) {
+    const groupRows = await sql`
+      SELECT g.id, g.name, d.company FROM ds_groups g
+      JOIN ds_deployments d ON g.deployment_id = d.id
+      WHERE g.id = ANY(${groupIds})
+    `;
+    for (const g of groupRows) groupMap[g.id] = { name: g.name, company: g.company };
+  }
+
+  // Get deployment names for display (for meetings with deployment_id but no group)
+  const depIds = [...new Set(meetings.map((m: any) => m.deployment_id).filter(Boolean))];
+  let depMap: Record<string, { name: string; company: string }> = {};
+  if (depIds.length > 0) {
+    const depRows = await sql`SELECT id, name, company FROM ds_deployments WHERE id = ANY(${depIds})`;
+    for (const d of depRows) depMap[d.id] = { name: d.name, company: d.company };
+  }
 
   return NextResponse.json({
     meetings: meetings.map((m: any) => ({
       id: m.id,
-      group_id: m.group_id,
-      group_name: groupMap[m.group_id]?.name || "",
-      company: groupMap[m.group_id]?.company || "",
+      group_id: m.group_id || null,
+      group_name: m.group_id ? (groupMap[m.group_id]?.name || "") : "",
+      deployment_id: m.deployment_id || null,
+      deployment_name: m.deployment_id ? (depMap[m.deployment_id]?.name || "") : "",
+      company: (m.group_id ? groupMap[m.group_id]?.company : "") || (m.deployment_id ? depMap[m.deployment_id]?.company : "") || "",
       date: m.date,
       type: m.type,
       agenda_sent: m.agenda_sent,

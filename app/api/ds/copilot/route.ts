@@ -157,8 +157,8 @@ export async function POST(request: NextRequest) {
         try {
           const { pageId, title, content } = await fetchNotionPageContent(url);
 
-          // Track import if in import mode or if the message looks like an import request
-          const isImport = mode === "import" || /import|upload|ingest|add.*notes/i.test(message);
+          // Always track imports when Notion content is present
+          const isImport = true;
           if (isImport) {
             importId = `ds-imp-${Date.now()}`;
             await sql`
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 
   // ── Determine mode ──
   const isOnboarding = deployments.length === 0 && !notionContext;
-  const isImportMode = mode === "import" || (notionContext && /import|upload|ingest|add.*notes/i.test(message));
+  const isImportMode = mode === "import" || !!notionContext;
 
   // ── Detect import step (multi-turn flow) ──
   let importStep = 1;

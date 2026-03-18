@@ -28,8 +28,8 @@ import {
 import {
   DeploymentForm,
   GroupForm,
-  WorkstreamForm,
   PersonForm,
+  WorkstreamForm,
   MeetingForm,
 } from "./crud-modals";
 
@@ -100,10 +100,48 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
     if (selectedGroup) drillIntoGroup(selectedGroup);
   };
 
-  // ─── Level 1.5: Deployment detail ───
+  // ─── Level 1.5: Deployment detail (North Star aligned) ───
   if (selectedDeployment && !selectedGroup) {
     const dep = selectedDeployment;
     const depGroups = dep.groups || [];
+
+    // Local state for deployment data
+    const [depPeople, setDepPeople] = useState<Person[]>([]);
+    const [depMeetings, setDepMeetings] = useState<Meeting[]>([]);
+    const [depWorkstreams, setDepWorkstreams] = useState<Workstream[]>([]);
+    const [depLoading, setDepLoading] = useState(true);
+    const [showPersonForm, setShowPersonForm] = useState(false);
+
+    // Fetch deployment data on mount
+    useEffect(() => {
+      setDepLoading(true);
+      Promise.all([
+        fetch(`/api/ds/people?deployment_id=${dep.id}`).then((r) => r.json()),
+        fetch(`/api/ds/meetings?deployment_id=${dep.id}&limit=5`).then((r) => r.json()),
+        fetch(`/api/ds/workstreams?deployment_id=${dep.id}`).then((r) => r.json()).catch(() => ({ workstreams: [] })),
+      ]).then(([pData, mData, wData]) => {
+        setDepPeople(pData.people || []);
+        setDepMeetings(mData.meetings || []);
+        setDepWorkstreams(wData.workstreams || wData || []);
+        setDepLoading(false);
+      }).catch(() => setDepLoading(false));
+    }, [dep.id]);
+
+    // Aggregate expansion signals and competitive intel from meetings
+    const allSignals: string[] = [];
+    const allIntel: string[] = [];
+    for (const m of depMeetings) {
+      if (m.expansion_signals) {
+        for (const s of (Array.isArray(m.expansion_signals) ? m.expansion_signals : [])) {
+          if (s && !allSignals.includes(s)) allSignals.push(s);
+        }
+      }
+      if (m.competitive_intel) {
+        for (const c of (Array.isArray(m.competitive_intel) ? m.competitive_intel : [])) {
+          if (c && !allIntel.includes(c)) allIntel.push(c);
+        }
+      }
+    }
 
     return (
       <div>
@@ -121,87 +159,224 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
           <div>
             <div className="flex items-center gap-3">
               <HealthDot health={dep.health} size={14} />
-              <h2 className="text-lg font-semibold text-gray-900">
-                {dep.name || dep.company}
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">{dep.name || dep.company}</h2>
               <StatusBadge status={dep.status} />
             </div>
-            {dep.name && (
-              <p className="text-sm text-gray-500 ml-7 mt-0.5">{dep.company}</p>
-            )}
-            {dep.start_date && (
-              <p className="text-[11px] text-gray-400 ml-7 mt-0.5">Started {dep.start_date}</p>
-            )}
+            {dep.name && <p className="text-sm text-gray-500 ml-7 mt-0.5">{dep.company}</p>}
+            {dep.start_date && <p className="text-[11px] text-gray-400 ml-7 mt-0.5">Started {dep.start_date}</p>}
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setEditDeployment(dep);
-                setShowDeploymentForm(true);
-              }}
+              onClick={() => { setEditDeployment(dep); setShowDeploymentForm(true); }}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors"
             >
               Edit
             </button>
             <button
-              onClick={() => {
-                setShowGroupForm(true);
-              }}
+              onClick={() => setShowPersonForm(true)}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" /> Add Group
+              <Plus className="w-3.5 h-3.5" /> Add Person
             </button>
           </div>
         </div>
 
-        {/* Notes */}
-        {dep.notes && (
-          <Card className="mb-4">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">Notes</h4>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{dep.notes}</p>
-          </Card>
-        )}
-
-        {/* Groups */}
-        <SectionHeader
-          icon={<Building2 className="w-4 h-4" />}
-          title="Groups"
-          count={depGroups.length}
-        />
-
-        {depGroups.length === 0 ? (
-          <EmptyState message="No groups yet. Add a group to organize your customer contacts and workstreams." />
-        ) : (
+        {depLoading ? (
           <div className="grid grid-cols-2 gap-4">
-            {depGroups.map((group) => (
-              <Card
-                key={group.id}
-                hover
-                onClick={() => drillIntoGroup({ ...group, company: dep.company })}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <HealthDot health={group.health} size={10} />
-                  <h4 className="text-sm font-semibold text-gray-900">{group.name}</h4>
-                </div>
-                {group.description && (
-                  <p className="text-[11px] text-gray-500 mb-3 line-clamp-2">{group.description}</p>
-                )}
-                <div className="flex items-center gap-4 text-[11px] text-gray-400">
-                  <span>{group.workstream_count || 0} workstreams</span>
-                  <span>{group.people_count || 0} people</span>
-                  {(group.completion_pct ?? 0) > 0 && (
-                    <span>{group.completion_pct}% complete</span>
-                  )}
-                </div>
-                {group.champions && group.champions.length > 0 && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <Star className="w-3 h-3 text-amber-400" />
-                    <span className="text-[10px] text-amber-600">{group.champions.join(", ")}</span>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-[10px] border border-gray-200 p-4 animate-pulse">
+                <div className="h-4 w-32 rounded bg-gray-100 mb-3" />
+                <div className="h-3 w-48 rounded bg-gray-50" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* 2-column layout */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {/* Left: Key Contacts */}
+              <Card>
+                <SectionHeader
+                  icon={<Users className="w-4 h-4" />}
+                  title="Key Contacts"
+                  count={depPeople.length}
+                />
+                {depPeople.length === 0 ? (
+                  <p className="text-sm text-gray-400">No contacts yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                    {depPeople.map((p) => (
+                      <div key={p.id} className="flex items-center gap-2 text-sm">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 ${
+                          p.is_champion ? "bg-gradient-to-br from-amber-400 to-orange-500" : "bg-gray-400"
+                        }`}>
+                          {p.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-900 truncate font-medium">{p.name}</span>
+                            {p.is_champion && <Star className="w-3 h-3 text-amber-400 shrink-0" />}
+                          </div>
+                          <span className="text-[10px] text-gray-500">{p.role}</span>
+                        </div>
+                        <SentimentBadge sentiment={p.sentiment} />
+                      </div>
+                    ))}
                   </div>
                 )}
               </Card>
-            ))}
-          </div>
+
+              {/* Right: Recent Meetings */}
+              <Card>
+                <SectionHeader
+                  icon={<CalendarDays className="w-4 h-4" />}
+                  title="Recent Meetings"
+                  count={depMeetings.length}
+                />
+                {depMeetings.length === 0 ? (
+                  <p className="text-sm text-gray-400">No meetings logged yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                    {depMeetings.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-2.5 py-1.5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[12px] font-medium text-gray-800">{m.date}</span>
+                            <Badge color="#6366f1" bg="#eef2ff">{m.type}</Badge>
+                          </div>
+                          {m.attendees?.length > 0 && (
+                            <span className="text-[10px] text-gray-400">{m.attendees.length} attendee{m.attendees.length !== 1 ? "s" : ""}</span>
+                          )}
+                        </div>
+                        <SentimentBadge sentiment={m.sentiment} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Active Workstreams (full width table) */}
+            {depWorkstreams.length > 0 && (
+              <Card className="mb-4">
+                <SectionHeader
+                  icon={<Building2 className="w-4 h-4" />}
+                  title="Active Workstreams"
+                  count={depWorkstreams.length}
+                />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="text-left text-[10px] text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                        <th className="pb-2 font-medium">Name</th>
+                        <th className="pb-2 font-medium">Owner</th>
+                        <th className="pb-2 font-medium">Priority</th>
+                        <th className="pb-2 font-medium">Status</th>
+                        <th className="pb-2 font-medium">Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {depWorkstreams.map((ws: any) => (
+                        <tr key={ws.id} className="border-b border-gray-50">
+                          <td className="py-1.5 text-gray-900 font-medium">{ws.name}</td>
+                          <td className="py-1.5 text-gray-600">{ws.owner || "—"}</td>
+                          <td className="py-1.5"><PriorityBadge priority={ws.priority} /></td>
+                          <td className="py-1.5"><StatusBadge status={ws.status} /></td>
+                          <td className="py-1.5 text-gray-500">{ws.due_date || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+
+            {/* Intel & Signals (full width, side by side) */}
+            {(allSignals.length > 0 || allIntel.length > 0) && (
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                {allSignals.length > 0 && (
+                  <Card>
+                    <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Expansion Signals</h4>
+                    <div className="flex flex-col gap-1">
+                      {allSignals.map((s, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-[12px]">
+                          <span className="mt-1.5 w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
+                          <span className="text-gray-700">{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+                {allIntel.length > 0 && (
+                  <Card>
+                    <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Competitive Intel</h4>
+                    <div className="flex flex-col gap-1">
+                      {allIntel.map((c, i) => (
+                        <div key={i} className="flex items-start gap-1.5 text-[12px]">
+                          <span className="mt-1.5 w-1 h-1 rounded-full bg-orange-400 shrink-0" />
+                          <span className="text-gray-700">{c}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* Groups (organizational tool, at bottom) */}
+            {depGroups.length > 0 && (
+              <div className="mb-4">
+                <SectionHeader
+                  icon={<Building2 className="w-4 h-4" />}
+                  title="Groups"
+                  count={depGroups.length}
+                  action={
+                    <button
+                      onClick={() => setShowGroupForm(true)}
+                      className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium"
+                    >
+                      + Add Group
+                    </button>
+                  }
+                />
+                <div className="grid grid-cols-3 gap-3">
+                  {depGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      onClick={() => drillIntoGroup({ ...group, company: dep.company })}
+                      className="rounded-lg border border-gray-100 bg-gray-50 p-2.5 cursor-pointer hover:bg-gray-100 transition-all"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <HealthDot health={group.health} size={7} />
+                        <span className="text-[12px] font-medium text-gray-900">{group.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-400">
+                        <span>{group.people_count || 0} people</span>
+                        <span>{group.workstream_count || 0} ws</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {depGroups.length === 0 && (
+              <button
+                onClick={() => setShowGroupForm(true)}
+                className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium mb-4"
+              >
+                + Add Group (for org chart organization)
+              </button>
+            )}
+
+            {/* Notes */}
+            {dep.notes && (
+              <Card>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">Notes</h4>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{dep.notes}</p>
+              </Card>
+            )}
+          </>
         )}
 
         {/* CRUD modals */}
@@ -211,7 +386,6 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
             onClose={() => { setShowDeploymentForm(false); setEditDeployment(null); }}
             onSaved={() => {
               handleSaved();
-              // Refresh the selected deployment
               fetchDeployments();
               setSelectedDeployment(null);
             }}
@@ -222,6 +396,18 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
             deploymentId={dep.id}
             onClose={() => setShowGroupForm(false)}
             onSaved={handleSaved}
+          />
+        )}
+        {showPersonForm && (
+          <PersonForm
+            deploymentId={dep.id}
+            onClose={() => setShowPersonForm(false)}
+            onSaved={() => {
+              setShowPersonForm(false);
+              handleSaved();
+              // Refresh deployment data
+              fetch(`/api/ds/people?deployment_id=${dep.id}`).then((r) => r.json()).then((d) => setDepPeople(d.people || []));
+            }}
           />
         )}
       </div>

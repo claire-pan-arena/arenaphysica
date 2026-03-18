@@ -63,8 +63,8 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { import_id, deployment_id, group_id, meeting, people, action_items, topics } = body;
 
-  if (!group_id) {
-    return NextResponse.json({ error: "group_id is required" }, { status: 400 });
+  if (!deployment_id) {
+    return NextResponse.json({ error: "deployment_id is required" }, { status: 400 });
   }
 
   const sql = getDb();
@@ -85,9 +85,9 @@ export async function PUT(request: NextRequest) {
   if (people && Array.isArray(people)) {
     for (const p of people) {
       if (!p.name?.trim()) continue;
-      // Check for existing person by name (case-insensitive) within group
+      // Check for existing person by name (case-insensitive) within deployment
       const existing = await sql`
-        SELECT id FROM ds_people WHERE LOWER(name) = LOWER(${p.name.trim()}) AND group_id = ${group_id}
+        SELECT id FROM ds_people WHERE LOWER(name) = LOWER(${p.name.trim()}) AND deployment_id = ${deployment_id}
       `;
       if (existing.length > 0) {
         // Update existing person
@@ -109,8 +109,8 @@ export async function PUT(request: NextRequest) {
         const pid = `ds-per-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         personIdMap[p.name.trim().toLowerCase()] = pid;
         await sql`
-          INSERT INTO ds_people (id, group_id, name, role, company, is_champion, sentiment, fun_fact, notes)
-          VALUES (${pid}, ${group_id}, ${p.name.trim()}, ${p.role || ""}, ${p.company || ""}, ${p.is_champion || false}, ${"neutral"}, ${p.fun_fact || ""}, ${p.notes || ""})
+          INSERT INTO ds_people (id, deployment_id, group_id, name, role, company, is_champion, sentiment, fun_fact, notes)
+          VALUES (${pid}, ${deployment_id}, ${group_id || null}, ${p.name.trim()}, ${p.role || ""}, ${p.company || ""}, ${p.is_champion || false}, ${"neutral"}, ${p.fun_fact || ""}, ${p.notes || ""})
         `;
         results.people_created++;
       }
@@ -129,8 +129,8 @@ export async function PUT(request: NextRequest) {
       : meeting.expansion_signals || "";
 
     await sql`
-      INSERT INTO ds_meetings (id, group_id, date, type, sentiment, notes, competitive_intel, expansion_signals)
-      VALUES (${meetingId}, ${group_id}, ${meeting.date}, ${meeting.type || "Weekly Check-in"}, ${meeting.sentiment || "neutral"}, ${meeting.notes || ""}, ${competitiveIntel}, ${expansionSignals})
+      INSERT INTO ds_meetings (id, deployment_id, group_id, date, type, sentiment, notes, competitive_intel, expansion_signals)
+      VALUES (${meetingId}, ${deployment_id}, ${group_id || null}, ${meeting.date}, ${meeting.type || "Weekly Check-in"}, ${meeting.sentiment || "neutral"}, ${meeting.notes || ""}, ${competitiveIntel}, ${expansionSignals})
     `;
     results.meeting_created = true;
 
