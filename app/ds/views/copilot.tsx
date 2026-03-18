@@ -300,18 +300,23 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{ action: string; data: any } | null>(null);
   const [activeQuestions, setActiveQuestions] = useState<Question[] | null>(null);
+  // Import flow state machine (frontend-driven)
+  const [importStep, setImportStep] = useState<number | null>(null);
+  const [importData, setImportData] = useState<any>(null);
+  const [importId, setImportId] = useState<string>("");
+  const [savingImport, setSavingImport] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, activeQuestions, pendingAction]);
+  }, [messages, activeQuestions, importData]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, overrideImportStep?: number) => {
     if (!text.trim() || sending) return;
 
     const notionDetected = hasNotionUrl(text);
+    const currentImportStep = overrideImportStep || (notionDetected ? 1 : importStep);
     const userMsg: Message = {
       id: `u-${Date.now()}`,
       role: "user",
@@ -322,6 +327,11 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
     setInput("");
     setSending(true);
     setActiveQuestions(null);
+
+    // If this is a new Notion link, start import flow
+    if (notionDetected && !importStep) {
+      setImportStep(1);
+    }
 
     try {
       const history = messages
@@ -337,11 +347,15 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           message: text.trim(),
           conversation_history: history,
-          mode: notionDetected ? "import" : undefined,
+          mode: (notionDetected || currentImportStep) ? "import" : undefined,
+          import_step: currentImportStep || undefined,
         }),
       });
       const data = await res.json();
       const replyText = data.reply || "I'll have a better answer once the Co-Pilot API is connected.";
+
+      // Track import ID from backend
+      if (data.import_id) setImportId(data.import_id);
 
       const agentMsg: Message = {
         id: `a-${Date.now()}`,
@@ -354,27 +368,29 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
       };
       setMessages((prev) => [...prev, agentMsg]);
 
-      // Show interactive questions if returned
+      // Show interactive questions if returned (Step 1)
       if (data.questions && data.questions.length > 0) {
         setActiveQuestions(data.questions);
       }
 
-      // Handle JSON action blocks
+      // Handle import_data from Step 2 response (frontend stores for confirmation)
+      if (data.import_data) {
+        setImportData(data.import_data);
+        setImportStep(3); // Ready for confirmation
+      }
+
+      // Handle JSON action blocks (for onboarding create_deployment/create_people only)
       const actions = extractJsonActions(replyText);
       for (const action of actions) {
         if (action.action === "save_import") {
-          // Confirmation gate — don't auto-execute
-          setPendingAction(action);
+          // Shouldn't happen in new flow, but handle gracefully
+          setImportData(action.data);
+          setImportStep(3);
         } else {
-          // Auto-execute onboarding actions
           const result = await executeAction(action);
           setMessages((prev) => [
             ...prev,
-            {
-              id: `sys-${Date.now()}-${Math.random()}`,
-              role: "agent",
-              text: `✅ ${result}`,
-            },
+            { id: `sys-${Date.now()}-${Math.random()}`, role: "agent", text: `✅ ${result}` },
           ]);
         }
       }
@@ -389,24 +405,54 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
   };
 
   const handleQuestionAnswer = (answers: Record<string, string>) => {
-    // Format answers as a readable message and send to Co-pilot
+    // Step 1 → Step 2: send answers, tell backend we're on step 2
+    setActiveQuestions(null);
+    setImportStep(2);
     const parts: string[] = [];
     for (const [key, value] of Object.entries(answers)) {
       if (value) parts.push(`${key}: ${value}`);
     }
-    const text = parts.join(", ");
-    setActiveQuestions(null);
-    sendMessage(text);
+    sendMessage(parts.join(", "), 2);
   };
 
-  const confirmSave = async () => {
-    if (!pendingAction) return;
-    const result = await executeAction(pendingAction);
-    setMessages((prev) => [
-      ...prev,
-      { id: `sys-${Date.now()}`, role: "agent", text: `✅ ${result}` },
-    ]);
-    setPendingAction(null);
+  const handleImportConfirm = async () => {
+    if (!importData) return;
+    setSavingImport(true);
+    try {
+      const res = await fetch("/api/ds/import/notion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(importData),
+      });
+      const result = await res.json();
+      if (result.success) {
+        const parts: string[] = [];
+        if (result.people_created) parts.push(`${result.people_created} contacts created`);
+        if (result.people_updated) parts.push(`${result.people_updated} contacts updated`);
+        if (result.meeting_created) parts.push("1 meeting logged");
+        if (result.action_items_created) parts.push(`${result.action_items_created} action items`);
+        if (result.topics_created) parts.push(`${result.topics_created} topics`);
+        setMessages((prev) => [
+          ...prev,
+          { id: `sys-${Date.now()}`, role: "agent", text: `✅ Saved to dashboard! ${parts.join(", ")}.` },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { id: `sys-${Date.now()}`, role: "agent", text: `❌ Save failed: ${result.error}` },
+        ]);
+      }
+    } catch (e: any) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `sys-${Date.now()}`, role: "agent", text: `❌ Network error: ${e.message}` },
+      ]);
+    } finally {
+      setImportData(null);
+      setImportStep(null);
+      setImportId("");
+      setSavingImport(false);
+    }
   };
 
   return (
@@ -468,34 +514,36 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* Pending save confirmation */}
-        {pendingAction && (
+        {/* Import confirmation card (Step 3) */}
+        {importData && importStep === 3 && (
           <div className="flex justify-start">
-            <div className="max-w-[90%] rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+            <div className="max-w-[90%] rounded-xl border-2 border-indigo-300 bg-indigo-50 p-3">
               <p className="text-[12px] font-semibold text-indigo-700 mb-2">Ready to save to dashboard:</p>
               <div className="text-[11px] text-gray-700 space-y-1">
-                {pendingAction.data.people?.length > 0 && (
-                  <p>👥 {pendingAction.data.people.length} contact{pendingAction.data.people.length !== 1 ? "s" : ""}</p>
+                {importData.people?.length > 0 && (
+                  <p>👥 {importData.people.length} contact{importData.people.length !== 1 ? "s" : ""}</p>
                 )}
-                {pendingAction.data.meeting?.date && (
-                  <p>📋 Meeting on {pendingAction.data.meeting.date}</p>
+                {importData.meeting?.date && (
+                  <p>📋 Meeting on {importData.meeting.date}</p>
                 )}
-                {pendingAction.data.action_items?.length > 0 && (
-                  <p>✅ {pendingAction.data.action_items.length} action item{pendingAction.data.action_items.length !== 1 ? "s" : ""}</p>
+                {importData.action_items?.length > 0 && (
+                  <p>✅ {importData.action_items.length} action item{importData.action_items.length !== 1 ? "s" : ""}</p>
                 )}
-                {pendingAction.data.topics?.length > 0 && (
-                  <p>📝 {pendingAction.data.topics.length} topic{pendingAction.data.topics.length !== 1 ? "s" : ""}</p>
+                {importData.topics?.length > 0 && (
+                  <p>📝 {importData.topics.length} topic{importData.topics.length !== 1 ? "s" : ""}</p>
                 )}
               </div>
               <div className="flex gap-2 mt-3">
                 <button
-                  onClick={confirmSave}
-                  className="rounded-lg bg-indigo-500 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-indigo-600 transition-colors"
+                  onClick={handleImportConfirm}
+                  disabled={savingImport}
+                  className="rounded-lg bg-indigo-500 px-4 py-1.5 text-[11px] font-medium text-white hover:bg-indigo-600 disabled:opacity-50 transition-colors"
                 >
-                  Confirm Save
+                  {savingImport ? "Saving..." : "Confirm Save"}
                 </button>
                 <button
-                  onClick={() => setPendingAction(null)}
+                  onClick={() => { setImportData(null); setImportStep(null); }}
+                  disabled={savingImport}
                   className="rounded-lg border border-gray-300 px-3 py-1.5 text-[11px] text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
