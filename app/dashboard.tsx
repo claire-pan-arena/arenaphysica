@@ -74,13 +74,14 @@ export default function Dashboard({ firstName }: { firstName: string }) {
   const [noteEvent, setNoteEvent] = useState<{ title: string; date: string } | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  const [calFilter, setCalFilter] = useState<"all" | "external">("external");
+  const [calFilter, setCalFilter] = useState<"all" | "external">("all");
   const [enabledTools, setEnabledTools] = useState<EnabledTool[]>([]);
   const [showAllTools, setShowAllTools] = useState(false);
   const [calendarReauth, setCalendarReauth] = useState(false);
 
   useEffect(() => {
-    fetch("/api/calendar")
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch(`/api/calendar?tz=${encodeURIComponent(tz)}`)
       .then((res) => {
         if (res.status === 401) {
           setCalendarReauth(true);

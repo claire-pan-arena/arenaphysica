@@ -13,6 +13,10 @@ export default async function Home() {
     return <LandingPage />;
   }
 
+  if (process.env.NODE_ENV === "development") {
+    return <Dashboard firstName="Dev" />;
+  }
+
   const session = await auth();
 
   if (session) {
