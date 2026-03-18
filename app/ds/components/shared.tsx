@@ -45,10 +45,20 @@ export function PriorityBadge({ priority }: { priority: string }) {
 
 /* ─── StatusBadge ─── */
 const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
+  // Task/workstream statuses
   done: { color: "#16a34a", bg: "#f0fdf4", label: "Done" },
   in_progress: { color: "#3b82f6", bg: "#eff6ff", label: "In Progress" },
   todo: { color: "#6b7280", bg: "#f3f4f6", label: "To Do" },
   blocked: { color: "#dc2626", bg: "#fef2f2", label: "Blocked" },
+  // Deployment lifecycle statuses
+  prospect: { color: "#6b7280", bg: "#f3f4f6", label: "Prospect" },
+  alpha: { color: "#3b82f6", bg: "#eff6ff", label: "Alpha" },
+  beta: { color: "#6366f1", bg: "#eef2ff", label: "Beta" },
+  pilot: { color: "#d97706", bg: "#fffbeb", label: "Pilot" },
+  scaling: { color: "#16a34a", bg: "#f0fdf4", label: "Scaling" },
+  fully_deployed: { color: "#059669", bg: "#ecfdf5", label: "Fully Deployed" },
+  // Legacy
+  active: { color: "#3b82f6", bg: "#eff6ff", label: "Active" },
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -299,9 +309,20 @@ export function EmptyState({
 }
 
 /* ─── Type definitions shared across views ─── */
+export interface Company {
+  id: string;
+  name: string;
+  owner_email: string;
+  notes?: string;
+  deployment_count?: number;
+  people_count?: number;
+}
+
 export interface Deployment {
   id: string;
+  name: string;
   company: string;
+  company_id?: string;
   health: string;
   status: string;
   start_date: string;
@@ -336,6 +357,7 @@ export interface Person {
   notes?: string;
   last_contact?: string;
   reports_to?: string;
+  company_id?: string;
 }
 
 export interface Workstream {

@@ -7,7 +7,11 @@ import {
   Mail,
   Clock,
   Plus,
+  GitBranch,
+  LayoutGrid,
+  Link2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import {
   Card,
   SentimentBadge,
@@ -18,6 +22,8 @@ import {
   type Meeting,
 } from "../components/shared";
 import { PersonForm } from "./crud-modals";
+
+const OrgChart = dynamic(() => import("./org-chart"), { ssr: false });
 
 interface Props {
   filterCompany: string;
@@ -56,6 +62,8 @@ export default function PeopleView({ filterCompany, filterGroup, onRefresh }: Pr
   const [personMeetings, setPersonMeetings] = useState<Meeting[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "orgchart">("grid");
+  const [linkMode, setLinkMode] = useState(false);
 
   const fetchPeople = () => {
     setLoading(true);
@@ -88,6 +96,17 @@ export default function PeopleView({ filterCompany, filterGroup, onRefresh }: Pr
     setEditPerson(null);
   };
 
+  const handleLinkPersons = async (personId: string, managerId: string) => {
+    await fetch("/api/ds/people", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: personId, reports_to: managerId }),
+    });
+    fetchPeople();
+    onRefresh();
+    setLinkMode(false);
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
@@ -109,9 +128,41 @@ export default function PeopleView({ filterCompany, filterGroup, onRefresh }: Pr
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-700">
-          {people.length} Contact{people.length !== 1 ? "s" : ""}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-gray-700">
+            {people.length} Contact{people.length !== 1 ? "s" : ""}
+          </h2>
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => { setViewMode("grid"); setLinkMode(false); }}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] transition-colors ${
+                viewMode === "grid" ? "bg-gray-100 text-gray-800 font-medium" : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" /> Cards
+            </button>
+            <button
+              onClick={() => setViewMode("orgchart")}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] transition-colors ${
+                viewMode === "orgchart" ? "bg-gray-100 text-gray-800 font-medium" : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <GitBranch className="w-3 h-3" /> Org Chart
+            </button>
+          </div>
+          {viewMode === "orgchart" && (
+            <button
+              onClick={() => setLinkMode(!linkMode)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-colors ${
+                linkMode
+                  ? "bg-indigo-100 text-indigo-700 border border-indigo-300"
+                  : "border border-gray-200 text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <Link2 className="w-3 h-3" /> {linkMode ? "Linking..." : "Set Reports To"}
+            </button>
+          )}
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 transition-colors"
@@ -122,6 +173,13 @@ export default function PeopleView({ filterCompany, filterGroup, onRefresh }: Pr
 
       {people.length === 0 ? (
         <EmptyState message="No contacts yet. Add people to your deployments." />
+      ) : viewMode === "orgchart" ? (
+        <OrgChart
+          people={people}
+          onPersonClick={openPersonDetail}
+          onLinkPersons={handleLinkPersons}
+          linkMode={linkMode}
+        />
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
           {people.map((person) => {

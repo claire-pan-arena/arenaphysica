@@ -11,6 +11,13 @@ export async function GET(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
+  // Return unique company names for the company dropdown
+  const companiesOnly = request.nextUrl.searchParams.get("companies_only");
+  if (companiesOnly === "true") {
+    const rows = await sql`SELECT DISTINCT company FROM ds_deployments WHERE company IS NOT NULL AND company != '' ORDER BY company`;
+    return NextResponse.json({ companies: rows.map((r: any) => r.company) });
+  }
+
   const deployments = await sql`
     SELECT * FROM ds_deployments
     WHERE owner_email = ${session.user.email}
@@ -90,7 +97,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     deployments: deployments.map((d: any) => ({
       id: d.id,
+      name: d.name || "",
       company: d.company,
+      company_id: d.company_id || null,
       status: d.status,
       start_date: d.start_date,
       health: d.health,
@@ -108,6 +117,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
+  const name = body.name;
   const company = body.company;
   const startDate = body.start_date ?? body.startDate;
   const health = body.health;
@@ -122,8 +132,8 @@ export async function POST(request: NextRequest) {
   const id = `ds-dep-${Date.now()}`;
 
   await sql`
-    INSERT INTO ds_deployments (id, company, start_date, health, status, notes, owner_email)
-    VALUES (${id}, ${company.trim()}, ${startDate || null}, ${health || "green"}, ${status || "active"}, ${notes || ""}, ${session.user.email})
+    INSERT INTO ds_deployments (id, name, company, start_date, health, status, notes, owner_email)
+    VALUES (${id}, ${name || ""}, ${company.trim()}, ${startDate || null}, ${health || "green"}, ${status || "prospect"}, ${notes || ""}, ${session.user.email})
   `;
 
   return NextResponse.json({ id });
@@ -136,7 +146,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, company, health, status, notes } = body;
+  const { id, name, company, health, status, notes } = body;
   const startDate = body.start_date ?? body.startDate;
   if (!id) {
     return NextResponse.json({ error: "ID is required" }, { status: 400 });
@@ -155,6 +165,7 @@ export async function PUT(request: NextRequest) {
 
   await sql`
     UPDATE ds_deployments SET
+      name = COALESCE(${name ?? null}, name),
       company = COALESCE(${company ?? null}, company),
       start_date = COALESCE(${startDate ?? null}, start_date),
       health = COALESCE(${health ?? null}, health),

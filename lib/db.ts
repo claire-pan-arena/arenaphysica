@@ -117,6 +117,17 @@ export async function initDb() {
   // ── DS Dashboard tables ──────────────────────────────────────────────
 
   await sql`
+    CREATE TABLE IF NOT EXISTS ds_companies (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_email TEXT NOT NULL,
+      notes TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS ds_deployments (
       id TEXT PRIMARY KEY,
       company TEXT NOT NULL,
@@ -129,6 +140,10 @@ export async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
+
+  // Phase 0 migrations: add name and company_id to deployments
+  await sql`ALTER TABLE ds_deployments ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''`;
+  await sql`ALTER TABLE ds_deployments ADD COLUMN IF NOT EXISTS company_id TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS ds_groups (
@@ -160,6 +175,9 @@ export async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
+
+  // Phase 4 migration: add company_id to people
+  await sql`ALTER TABLE ds_people ADD COLUMN IF NOT EXISTS company_id TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS ds_workstreams (
@@ -256,6 +274,22 @@ export async function initDb() {
       task_id TEXT NOT NULL,
       priority TEXT DEFAULT 'p1',
       notes TEXT DEFAULT ''
+    )
+  `;
+
+  // ── Notion Import tracking ──
+  await sql`
+    CREATE TABLE IF NOT EXISTS ds_notion_imports (
+      id TEXT PRIMARY KEY,
+      notion_url TEXT NOT NULL,
+      notion_page_id TEXT NOT NULL,
+      raw_content TEXT NOT NULL,
+      extracted_data JSONB,
+      status TEXT DEFAULT 'pending',
+      target_deployment_id TEXT,
+      target_group_id TEXT,
+      owner_email TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
     )
   `;
 

@@ -159,12 +159,22 @@ export function DeploymentForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [name, setName] = useState(deployment?.name || "");
   const [company, setCompany] = useState(deployment?.company || "");
+  const [companySearch, setCompanySearch] = useState(deployment?.company || "");
+  const [companies, setCompanies] = useState<string[]>([]);
   const [startDate, setStartDate] = useState(deployment?.start_date || "");
   const [health, setHealth] = useState(deployment?.health || "green");
-  const [status, setStatus] = useState(deployment?.status || "in_progress");
+  const [status, setStatus] = useState(deployment?.status || "prospect");
   const [notes, setNotes] = useState(deployment?.notes || "");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ds/deployments?companies_only=true")
+      .then((r) => r.json())
+      .then((d) => setCompanies(d.companies || []))
+      .catch(() => {});
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -172,7 +182,7 @@ export function DeploymentForm({
     await fetch("/api/ds/deployments", {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: deployment?.id, company, start_date: startDate, health, status, notes }),
+      body: JSON.stringify({ id: deployment?.id, name, company: companySearch || company, start_date: startDate, health, status, notes }),
     });
     setSaving(false);
     onSaved();
@@ -181,7 +191,27 @@ export function DeploymentForm({
   return (
     <Modal open onClose={onClose} title={deployment ? "Edit Deployment" : "New Deployment"}>
       <div className="flex flex-col gap-4">
-        <InputField label="Company" value={company} onChange={setCompany} required />
+        <InputField label="Deployment Name" value={name} onChange={setName} required placeholder="e.g., Mobile App, Ghost Support Platform" />
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Company <span className="text-red-500 ml-0.5">*</span>
+          </label>
+          <input
+            value={companySearch}
+            onChange={(e) => {
+              setCompanySearch(e.target.value);
+              setCompany(e.target.value);
+            }}
+            placeholder="Type or select a company..."
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            list="company-list"
+          />
+          <datalist id="company-list">
+            {companies.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </div>
         <InputField label="Start Date" type="date" value={startDate} onChange={setStartDate} />
         <HealthRadio value={health} onChange={setHealth} />
         <InputField
@@ -190,10 +220,12 @@ export function DeploymentForm({
           value={status}
           onChange={setStatus}
           options={[
-            { value: "in_progress", label: "In Progress" },
-            { value: "done", label: "Done" },
-            { value: "blocked", label: "Blocked" },
-            { value: "todo", label: "To Do" },
+            { value: "prospect", label: "Prospect" },
+            { value: "alpha", label: "Alpha" },
+            { value: "beta", label: "Beta" },
+            { value: "pilot", label: "Pilot" },
+            { value: "scaling", label: "Scaling" },
+            { value: "fully_deployed", label: "Fully Deployed" },
           ]}
         />
         <InputField label="Notes" type="textarea" value={notes} onChange={setNotes} />
