@@ -7,6 +7,7 @@ import {
   Mail,
   Clock,
   Plus,
+  Pencil,
   GitBranch,
   LayoutGrid,
   Link2,
@@ -240,33 +241,46 @@ export default function PeopleView({ filterCompany, filterGroup, onRefresh }: Pr
       >
         {selectedPerson && (
           <div>
-            <div className="flex items-start gap-4 mb-6">
-              <div
-                className={`flex items-center justify-center w-16 h-16 rounded-full text-white text-xl font-semibold shrink-0 ${
-                  selectedPerson.is_champion
-                    ? "bg-gradient-to-br from-amber-400 to-orange-500"
-                    : "bg-gray-400"
-                }`}
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`flex items-center justify-center w-16 h-16 rounded-full text-white text-xl font-semibold shrink-0 ${
+                    selectedPerson.is_champion
+                      ? "bg-gradient-to-br from-amber-400 to-orange-500"
+                      : "bg-gray-400"
+                  }`}
+                >
+                  {getInitials(selectedPerson.name)}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedPerson.name}
+                    </h3>
+                    {selectedPerson.is_champion && (
+                      <Star className="w-4 h-4 text-amber-400" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">{selectedPerson.role}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <SentimentBadge sentiment={selectedPerson.sentiment} />
+                    {selectedPerson.group_name && (
+                      <Badge color="#6b7280" bg="#f3f4f6">{selectedPerson.group_name}</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const p = selectedPerson;
+                  setSelectedPerson(null);
+                  setEditPerson(p);
+                  setShowForm(true);
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5 shrink-0"
               >
-                {getInitials(selectedPerson.name)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {selectedPerson.name}
-                  </h3>
-                  {selectedPerson.is_champion && (
-                    <Star className="w-4 h-4 text-amber-400" />
-                  )}
-                </div>
-                <p className="text-sm text-gray-500">{selectedPerson.role}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <SentimentBadge sentiment={selectedPerson.sentiment} />
-                  {selectedPerson.group_name && (
-                    <Badge color="#6b7280" bg="#f3f4f6">{selectedPerson.group_name}</Badge>
-                  )}
-                </div>
-              </div>
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
             </div>
 
             {/* Info grid */}
