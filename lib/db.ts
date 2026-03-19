@@ -123,6 +123,7 @@ export async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE team_members ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`;
 
   // Team calendar entries — manual + Google Calendar synced
   await sql`

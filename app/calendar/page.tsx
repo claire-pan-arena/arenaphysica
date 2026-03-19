@@ -25,6 +25,18 @@ interface TravelSuggestion {
   endDate: string;
 }
 
+/** A group of consecutive same-location entries for one member */
+interface EntrySpan {
+  location: string;
+  entryType: string;
+  note: string;
+  startDate: string;
+  endDate: string;
+  entryIds: string[];
+  startIdx: number; // column index in the days array
+  span: number; // number of columns to span
+}
+
 function getMonday(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay();
@@ -68,6 +80,67 @@ function formatDateRange(start: string, end: string): string {
   return `${sMonth} ${s.getDate()} - ${eMonth} ${e.getDate()}`;
 }
 
+/** Merge consecutive same-location entries into spans */
+function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
+  const dateIndex = new Map<string, number>();
+  dayDates.forEach((d, i) => dateIndex.set(d, i));
+
+  // Group entries by date (only dates in our view range)
+  const byDate = new Map<string, CalendarEntry[]>();
+  for (const e of entries) {
+    if (!dateIndex.has(e.date)) continue;
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date)!.push(e);
+  }
+
+  // Track which dates are consumed by a span
+  const consumed = new Set<string>();
+  const spans: EntrySpan[] = [];
+
+  for (let i = 0; i < dayDates.length; i++) {
+    const date = dayDates[i];
+    const dayEntries = byDate.get(date) || [];
+
+    for (const entry of dayEntries) {
+      const key = `${entry.location}|${entry.entryType}`;
+      if (consumed.has(`${date}|${key}`)) continue;
+
+      // Extend forward while same location+type exists on consecutive days
+      const ids = [entry.id];
+      consumed.add(`${date}|${key}`);
+      let endIdx = i;
+
+      for (let j = i + 1; j < dayDates.length; j++) {
+        const nextDate = dayDates[j];
+        const nextEntries = byDate.get(nextDate) || [];
+        const match = nextEntries.find(
+          (e) => e.location === entry.location && e.entryType === entry.entryType && !consumed.has(`${nextDate}|${key}`)
+        );
+        if (match) {
+          ids.push(match.id);
+          consumed.add(`${nextDate}|${key}`);
+          endIdx = j;
+        } else {
+          break;
+        }
+      }
+
+      spans.push({
+        location: entry.location,
+        entryType: entry.entryType,
+        note: entry.note,
+        startDate: date,
+        endDate: dayDates[endIdx],
+        entryIds: ids,
+        startIdx: i,
+        span: endIdx - i + 1,
+      });
+    }
+  }
+
+  return spans;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ENTRY_TYPES = [
@@ -86,21 +159,29 @@ function getCellStyle(entryType: string) {
   }
 }
 
+interface ModalState {
+  memberEmail: string;
+  memberName?: string;
+  location: string;
+  entryType: string;
+  note: string;
+  startDate: string;
+  endDate: string;
+  editIds?: string[]; // existing entry IDs being edited
+}
+
 export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => formatDate(getMonday(new Date())));
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [modal, setModal] = useState<{ date: string; editId?: string; memberEmail?: string } | null>(null);
-  const [modalLocation, setModalLocation] = useState("");
-  const [modalType, setModalType] = useState("travel");
-  const [modalNote, setModalNote] = useState("");
-  const [dragEntry, setDragEntry] = useState<{ id: string; memberEmail: string } | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
   const [numWeeks, setNumWeeks] = useState(2);
   const [suggestions, setSuggestions] = useState<TravelSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [showAddPerson, setShowAddPerson] = useState(false);
+  const [dragMemberIdx, setDragMemberIdx] = useState<number | null>(null);
   const [orgPeople, setOrgPeople] = useState<{ email: string; name: string }[]>([]);
   const [addSearch, setAddSearch] = useState("");
 
@@ -126,13 +207,8 @@ export default function CalendarPage() {
       .catch(() => setLoadingSuggestions(false));
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    fetchSuggestions();
-  }, [fetchSuggestions]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -147,57 +223,52 @@ export default function CalendarPage() {
     setSyncing(false);
   };
 
-  const handleAddEntry = async () => {
-    if (!modal || !modalLocation.trim()) return;
-    if (modal.editId) {
-      // Update existing entry
-      await fetch("/api/team-calendar", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: modal.editId,
-          date: modal.date,
-          location: modalLocation.trim(),
-          entryType: modalType,
-          note: modalNote.trim(),
-        }),
-      });
-    } else {
+  const handleSaveEntry = async () => {
+    if (!modal || !modal.location.trim()) return;
+
+    // Delete old entries if editing
+    if (modal.editIds) {
+      for (const id of modal.editIds) {
+        await fetch("/api/team-calendar", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+      }
+    }
+
+    // Create entries for each day in the range
+    const start = new Date(modal.startDate + "T12:00:00");
+    const end = new Date(modal.endDate + "T12:00:00");
+    const d = new Date(start);
+    while (d <= end) {
       await fetch("/api/team-calendar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: modal.date,
-          location: modalLocation.trim(),
-          entryType: modalType,
-          note: modalNote.trim(),
+          date: formatDate(d),
+          location: modal.location.trim(),
+          entryType: modal.entryType,
+          note: modal.note.trim(),
           forEmail: modal.memberEmail,
+          forName: modal.memberName,
         }),
       });
+      d.setDate(d.getDate() + 1);
     }
+
     setModal(null);
-    setModalLocation("");
-    setModalType("travel");
-    setModalNote("");
     fetchData();
   };
 
-  const handleDrop = async (entryId: string, newDate: string) => {
-    await fetch("/api/team-calendar", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: entryId, date: newDate }),
-    });
-    setDragEntry(null);
-    fetchData();
-  };
-
-  const handleDelete = async (id: string) => {
-    await fetch("/api/team-calendar", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+  const handleDeleteSpan = async (entryIds: string[]) => {
+    for (const id of entryIds) {
+      await fetch("/api/team-calendar", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    }
     fetchData();
   };
 
@@ -222,6 +293,20 @@ export default function CalendarPage() {
     fetchData();
   };
 
+  const handleReorderMember = async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    const reordered = [...members];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setMembers(reordered);
+    // Persist new order
+    await fetch("/api/team-calendar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reorder", order: reordered.map((m) => m.email) }),
+    });
+  };
+
   const handleRemovePerson = async (email: string) => {
     await fetch("/api/team-calendar", {
       method: "POST",
@@ -233,7 +318,6 @@ export default function CalendarPage() {
 
   const handleConfirmSuggestion = async (suggestion: TravelSuggestion) => {
     setConfirmingId(suggestion.id);
-    // Add an entry for each day in the range
     const start = new Date(suggestion.startDate + "T12:00:00");
     const end = new Date(suggestion.endDate + "T12:00:00");
     const d = new Date(start);
@@ -264,16 +348,12 @@ export default function CalendarPage() {
     d.setDate(d.getDate() - 7);
     setWeekStart(formatDate(d));
   };
-
   const nextWeek = () => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + 7);
     setWeekStart(formatDate(d));
   };
-
-  const today = () => {
-    setWeekStart(formatDate(getMonday(new Date())));
-  };
+  const today = () => setWeekStart(formatDate(getMonday(new Date())));
 
   // Build days array
   const days: Date[] = [];
@@ -283,7 +363,7 @@ export default function CalendarPage() {
     d.setDate(startDate.getDate() + i);
     days.push(d);
   }
-
+  const dayDates = days.map(formatDate);
   const todayStr = formatDate(new Date());
 
   return (
@@ -336,30 +416,21 @@ export default function CalendarPage() {
             <div className="flex-1 min-w-0">
               {/* Week navigation */}
               <div className="flex items-center gap-4 mb-6">
-                <button
-                  onClick={prevWeek}
-                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-                >
+                <button onClick={prevWeek} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
                   Prev
                 </button>
-                <button
-                  onClick={today}
-                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-                >
+                <button onClick={today} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
                   Today
                 </button>
-                <button
-                  onClick={nextWeek}
-                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-                >
+                <button onClick={nextWeek} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
                   Next
                 </button>
                 <span className="text-sm text-white/80 ml-2">
                   {formatWeekRange(startDate)}
                   {numWeeks > 1 && (() => {
-                    const secondWeekStart = new Date(startDate);
-                    secondWeekStart.setDate(startDate.getDate() + 7);
-                    return ` - ${formatWeekRange(secondWeekStart)}`;
+                    const lastWeekStart = new Date(startDate);
+                    lastWeekStart.setDate(startDate.getDate() + (numWeeks - 1) * 7);
+                    return ` - ${formatWeekRange(lastWeekStart)}`;
                   })()}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
@@ -385,10 +456,16 @@ export default function CalendarPage() {
                 <p className="text-white/40 text-sm">Loading...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
+                  <table className="w-full border-collapse table-fixed">
+                    <colgroup>
+                      <col className="w-[100px]" />
+                      {days.map((day) => (
+                        <col key={formatDate(day)} className="w-[80px]" />
+                      ))}
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th className="text-left text-[10px] tracking-widest uppercase text-white/40 px-3 py-2 w-[140px] sticky left-0 bg-[#1e2530] z-10">
+                        <th className="text-left text-[10px] tracking-widest uppercase text-white/40 px-2 py-2 sticky left-0 bg-[#1e2530] z-10">
                           Team
                         </th>
                         {days.map((day) => {
@@ -398,7 +475,7 @@ export default function CalendarPage() {
                           return (
                             <th
                               key={formatDate(day)}
-                              className={`text-center text-[9px] tracking-wider uppercase px-0.5 py-1.5 min-w-[56px] ${
+                              className={`text-center text-[9px] tracking-wider uppercase px-0.5 py-1.5 ${
                                 isToday ? "text-white" : isWeekend ? "text-white/20" : "text-white/40"
                               }`}
                             >
@@ -420,81 +497,115 @@ export default function CalendarPage() {
                           </td>
                         </tr>
                       ) : (
-                        members.map((member) => (
-                          <tr key={member.email} className="border-t border-white/[0.06]">
-                            <td className="px-3 py-2 sticky left-0 bg-[#1e2530] z-10 group/name">
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-white/80">{member.name.split(" ")[0]}</span>
-                                <button
-                                  onClick={() => handleRemovePerson(member.email)}
-                                  className="w-3.5 h-3.5 text-[9px] text-white/20 hover:text-white/50 hidden group-hover/name:inline-flex items-center justify-center"
-                                  title="Remove from calendar"
-                                >
-                                  x
-                                </button>
-                              </div>
-                            </td>
-                            {days.map((day) => {
-                              const dateStr = formatDate(day);
-                              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                              const dayEntries = member.entries.filter((e) => e.date === dateStr);
+                        members.map((member, memberIdx) => {
+                          const spans = buildSpans(member.entries, dayDates);
+                          // Build a map: column index -> span (only for the first column of each span)
+                          const spanAt = new Map<number, EntrySpan>();
+                          const consumed = new Set<number>();
+                          for (const s of spans) {
+                            spanAt.set(s.startIdx, s);
+                            for (let c = s.startIdx; c < s.startIdx + s.span; c++) {
+                              if (c !== s.startIdx) consumed.add(c);
+                            }
+                          }
 
-                              return (
-                                <td
-                                  key={dateStr}
-                                  className={`px-0.5 py-1 ${isWeekend ? "bg-white/[0.02]" : ""}`}
-                                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("bg-white/[0.08]"); }}
-                                  onDragLeave={(e) => { e.currentTarget.classList.remove("bg-white/[0.08]"); }}
-                                  onDrop={(e) => {
-                                    e.preventDefault();
-                                    e.currentTarget.classList.remove("bg-white/[0.08]");
-                                    if (dragEntry) handleDrop(dragEntry.id, dateStr);
-                                  }}
-                                >
-                                  <div className="flex flex-col gap-0.5">
-                                    {dayEntries.map((entry) => (
+                          return (
+                            <tr key={member.email} className="border-t border-white/[0.06]">
+                              <td
+                                className={`px-2 py-2 sticky left-0 bg-[#1e2530] z-10 group/name cursor-grab ${dragMemberIdx !== null && dragMemberIdx !== memberIdx ? "border-t border-transparent" : ""}`}
+                                draggable
+                                onDragStart={() => setDragMemberIdx(memberIdx)}
+                                onDragEnd={() => setDragMemberIdx(null)}
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-t-white/40"); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove("border-t-white/40"); }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.remove("border-t-white/40");
+                                  if (dragMemberIdx !== null) handleReorderMember(dragMemberIdx, memberIdx);
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-white/80">{member.name.split(" ")[0]}</span>
+                                  <button
+                                    onClick={() => handleRemovePerson(member.email)}
+                                    className="w-3.5 h-3.5 text-[9px] text-white/20 hover:text-white/50 hidden group-hover/name:inline-flex items-center justify-center"
+                                    title="Remove from calendar"
+                                  >
+                                    x
+                                  </button>
+                                </div>
+                              </td>
+                              {days.map((day, colIdx) => {
+                                if (consumed.has(colIdx)) return null; // consumed by a span
+
+                                const span = spanAt.get(colIdx);
+                                const dateStr = dayDates[colIdx];
+                                const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+
+                                if (span) {
+                                  return (
+                                    <td
+                                      key={dateStr}
+                                      colSpan={span.span}
+                                      className="px-0.5 py-1"
+                                    >
                                       <div
-                                        key={entry.id}
-                                        draggable
-                                        onDragStart={() => setDragEntry({ id: entry.id, memberEmail: member.email })}
-                                        onDragEnd={() => setDragEntry(null)}
-                                        onClick={() => {
-                                          setModal({ date: dateStr, editId: entry.id, memberEmail: member.email });
-                                          setModalLocation(entry.location);
-                                          setModalType(entry.entryType);
-                                          setModalNote(entry.note || "");
-                                        }}
-                                        className={`group relative px-1.5 py-0.5 rounded text-[10px] leading-tight cursor-pointer ${getCellStyle(entry.entryType)}`}
-                                        title={entry.note || entry.location}
+                                        onClick={() => setModal({
+                                          memberEmail: member.email,
+                                          memberName: member.name,
+                                          location: span.location,
+                                          entryType: span.entryType,
+                                          note: span.note || "",
+                                          startDate: span.startDate,
+                                          endDate: span.endDate,
+                                          editIds: span.entryIds,
+                                        })}
+                                        className={`group relative px-2 py-1.5 rounded text-[11px] leading-tight cursor-pointer text-center ${getCellStyle(span.entryType)}`}
+                                        title={span.note || `${span.location} (${formatDateRange(span.startDate, span.endDate)})`}
                                       >
-                                        <span className="truncate block">{entry.location}</span>
+                                        <span className="block truncate">{span.location}</span>
+                                        {span.span > 1 && (
+                                          <span className="block text-[9px] opacity-60 mt-0.5">
+                                            {formatDateRange(span.startDate, span.endDate)}
+                                          </span>
+                                        )}
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteSpan(span.entryIds); }}
                                           className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
                                         >
                                           x
                                         </button>
                                       </div>
-                                    ))}
+                                    </td>
+                                  );
+                                }
+
+                                // Empty cell
+                                return (
+                                  <td
+                                    key={dateStr}
+                                    className={`px-0.5 py-1 ${isWeekend ? "bg-white/[0.02]" : ""}`}
+                                  >
                                     <button
-                                      onClick={() => {
-                                        setModal({ date: dateStr, memberEmail: member.email });
-                                        setModalLocation("");
-                                        setModalType("travel");
-                                        setModalNote("");
-                                      }}
-                                      className={`px-1 py-0.5 rounded text-[9px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors ${
-                                        dayEntries.length === 0 ? "min-h-[22px]" : ""
-                                      }`}
+                                      onClick={() => setModal({
+                                        memberEmail: member.email,
+                                        memberName: member.name,
+                                        location: "",
+                                        entryType: "travel",
+                                        note: "",
+                                        startDate: dateStr,
+                                        endDate: dateStr,
+                                      })}
+                                      className="w-full px-1 py-0.5 rounded text-[9px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors min-h-[28px]"
                                     >
                                       +
                                     </button>
-                                  </div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -538,8 +649,6 @@ export default function CalendarPage() {
                             {formatDateRange(sug.startDate, sug.endDate)}
                           </div>
                         </div>
-
-                        {/* Confirm / Dismiss */}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleConfirmSuggestion(sug)}
@@ -565,12 +674,12 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Add entry modal */}
+      {/* Entry modal (add / edit) */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e2530] border border-white/10 rounded-lg p-6 w-[400px]">
+          <div className="bg-[#1e2530] border border-white/10 rounded-lg p-6 w-[420px]">
             <h3 className="text-sm text-white/80 mb-4">
-              {modal.editId ? "Edit" : "Add"} entry for {new Date(modal.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+              {modal.editIds ? "Edit entry" : "Add entry"}
             </h3>
 
             <div className="space-y-3">
@@ -578,12 +687,34 @@ export default function CalendarPage() {
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Location / City</label>
                 <input
                   type="text"
-                  value={modalLocation}
-                  onChange={(e) => setModalLocation(e.target.value)}
-                  placeholder="e.g. Los Angeles, SF, Austin"
+                  value={modal.location}
+                  onChange={(e) => setModal({ ...modal, location: e.target.value })}
+                  placeholder="e.g. Los Angeles, California"
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                   autoFocus
                 />
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Start date</label>
+                  <input
+                    type="date"
+                    value={modal.startDate}
+                    onChange={(e) => setModal({ ...modal, startDate: e.target.value, endDate: e.target.value > modal.endDate ? e.target.value : modal.endDate })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">End date</label>
+                  <input
+                    type="date"
+                    value={modal.endDate}
+                    min={modal.startDate}
+                    onChange={(e) => setModal({ ...modal, endDate: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
+                  />
+                </div>
               </div>
 
               <div>
@@ -592,9 +723,9 @@ export default function CalendarPage() {
                   {ENTRY_TYPES.map((t) => (
                     <button
                       key={t.value}
-                      onClick={() => setModalType(t.value)}
+                      onClick={() => setModal({ ...modal, entryType: t.value })}
                       className={`px-3 py-1.5 text-xs border rounded transition-colors ${
-                        modalType === t.value
+                        modal.entryType === t.value
                           ? "border-white/40 text-white bg-white/10"
                           : "border-white/10 text-white/40 hover:border-white/20"
                       }`}
@@ -609,28 +740,40 @@ export default function CalendarPage() {
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Note (optional)</label>
                 <input
                   type="text"
-                  value={modalNote}
-                  onChange={(e) => setModalNote(e.target.value)}
+                  value={modal.note}
+                  onChange={(e) => setModal({ ...modal, note: e.target.value })}
                   placeholder="e.g. Anduril visit, team offsite"
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setModal(null)}
-                className="px-4 py-2 text-xs text-white/40 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddEntry}
-                disabled={!modalLocation.trim()}
-                className="px-4 py-2 text-xs text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-30"
-              >
-                {modal.editId ? "Save" : "Add"}
-              </button>
+            <div className="flex justify-between mt-6">
+              <div>
+                {modal.editIds && (
+                  <button
+                    onClick={() => { handleDeleteSpan(modal.editIds!); setModal(null); }}
+                    className="px-4 py-2 text-xs text-red-400/60 hover:text-red-400 transition-colors"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModal(null)}
+                  className="px-4 py-2 text-xs text-white/40 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEntry}
+                  disabled={!modal.location.trim()}
+                  className="px-4 py-2 text-xs text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-30"
+                >
+                  {modal.editIds ? "Save" : "Add"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -651,7 +794,6 @@ export default function CalendarPage() {
             <div className="overflow-y-auto flex-1 -mx-1">
               {orgPeople
                 .filter((p) => {
-                  // Exclude people already on the calendar
                   if (members.some((m) => m.email === p.email)) return false;
                   if (!addSearch) return true;
                   const q = addSearch.toLowerCase();

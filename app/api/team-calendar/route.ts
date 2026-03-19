@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   end.setDate(end.getDate() + weeks * 7);
   const endStr = end.toISOString().split("T")[0];
 
-  const members = await sql`SELECT email, name FROM team_members ORDER BY name`;
+  const members = await sql`SELECT email, name FROM team_members ORDER BY sort_order, name`;
   const entries = await sql`
     SELECT * FROM team_calendar_entries
     WHERE date >= ${weekStart} AND date < ${endStr}
@@ -61,7 +61,15 @@ export async function POST(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { date, location, entryType, note, forEmail, forName, action } = await request.json();
+  const { date, location, entryType, note, forEmail, forName, action, order } = await request.json();
+
+  // Action: reorder members
+  if (action === "reorder" && Array.isArray(order)) {
+    for (let i = 0; i < order.length; i++) {
+      await sql`UPDATE team_members SET sort_order = ${i} WHERE email = ${order[i]}`;
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   // Action: add a team member
   if (action === "add_member") {
