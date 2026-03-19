@@ -169,6 +169,7 @@ function getCellStyle(entryType: string, source: string) {
 interface ModalState {
   memberEmail: string;
   memberName?: string;
+  additionalMembers: { email: string; name: string }[];
   location: string;
   entryType: string;
   note: string;
@@ -261,24 +262,31 @@ export default function CalendarPage() {
       }
     }
 
-    // Create entries for each day in the range
-    const start = new Date(modal.startDate + "T12:00:00");
-    const end = new Date(modal.endDate + "T12:00:00");
-    const d = new Date(start);
-    while (d <= end) {
-      await fetch("/api/team-calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: formatDate(d),
-          location: modal.location.trim(),
-          entryType: modal.entryType,
-          note: modal.note.trim(),
-          forEmail: modal.memberEmail,
-          forName: modal.memberName,
-        }),
-      });
-      d.setDate(d.getDate() + 1);
+    // All people to create entries for: primary + additional
+    const people = [
+      { email: modal.memberEmail, name: modal.memberName },
+      ...modal.additionalMembers,
+    ];
+
+    for (const person of people) {
+      const start = new Date(modal.startDate + "T12:00:00");
+      const end = new Date(modal.endDate + "T12:00:00");
+      const d = new Date(start);
+      while (d <= end) {
+        await fetch("/api/team-calendar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: formatDate(d),
+            location: modal.location.trim(),
+            entryType: modal.entryType,
+            note: modal.note.trim(),
+            forEmail: person.email,
+            forName: person.name,
+          }),
+        });
+        d.setDate(d.getDate() + 1);
+      }
     }
 
     setModal(null);
@@ -356,7 +364,8 @@ export default function CalendarPage() {
   const handleConfirmSuggestion = (suggestion: TravelSuggestion) => {
     // Open edit modal pre-filled with suggestion data so user can adjust
     setModal({
-      memberEmail: "", // current user — blank means self
+      memberEmail: "",
+      additionalMembers: [],
       location: suggestion.location,
       entryType: "travel",
       note: "",
@@ -573,6 +582,7 @@ export default function CalendarPage() {
                                         onClick={() => setModal({
                                           memberEmail: member.email,
                                           memberName: member.name,
+                                          additionalMembers: [],
                                           location: span.location,
                                           entryType: span.entryType,
                                           note: span.note || "",
@@ -619,6 +629,7 @@ export default function CalendarPage() {
                                       onClick={() => setModal({
                                         memberEmail: member.email,
                                         memberName: member.name,
+                                        additionalMembers: [],
                                         location: "",
                                         entryType: "travel",
                                         note: "",
@@ -799,6 +810,49 @@ export default function CalendarPage() {
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                 />
               </div>
+
+              {!modal.editIds && (
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Also add for</label>
+                  {modal.additionalMembers.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {modal.additionalMembers.map((p) => (
+                        <span
+                          key={p.email}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-white/10 rounded text-white/70"
+                        >
+                          {p.name.split(" ")[0]}
+                          <button
+                            onClick={() => setModal({ ...modal, additionalMembers: modal.additionalMembers.filter((m) => m.email !== p.email) })}
+                            className="text-white/30 hover:text-white/60"
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      if (!email) return;
+                      const person = members.find((m) => m.email === email);
+                      if (person && !modal.additionalMembers.some((m) => m.email === email)) {
+                        setModal({ ...modal, additionalMembers: [...modal.additionalMembers, { email: person.email, name: person.name }] });
+                      }
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white/40 focus:outline-none focus:border-white/30 [color-scheme:dark]"
+                  >
+                    <option value="">Select team member...</option>
+                    {members
+                      .filter((m) => m.email !== modal.memberEmail && !modal.additionalMembers.some((a) => a.email === m.email))
+                      .map((m) => (
+                        <option key={m.email} value={m.email}>{m.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between mt-6">
