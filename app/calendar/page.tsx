@@ -228,6 +228,24 @@ export default function CalendarPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
 
+  // Auto-sync on page load and every 10 minutes
+  const hasSyncedOnLoad = useRef(false);
+  useEffect(() => {
+    const doSync = () => {
+      fetch("/api/team-calendar/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart, weeks: numWeeks }),
+      }).then(() => { fetchData(); fetchSuggestions(); }).catch(() => {});
+    };
+    if (!hasSyncedOnLoad.current) {
+      hasSyncedOnLoad.current = true;
+      doSync();
+    }
+    const interval = setInterval(doSync, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [weekStart, numWeeks, fetchData, fetchSuggestions]);
+
   // Infinite scroll: load more weeks when near right edge
   useEffect(() => {
     const el = scrollRef.current;
