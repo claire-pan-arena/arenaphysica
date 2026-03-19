@@ -44,5 +44,30 @@ export async function POST(request: NextRequest) {
   // Also sync Notion OOO entries
   const ooo = await syncNotionOOO(sql);
 
-  return NextResponse.json({ synced, failed, total: members.length, notionOOO: ooo });
+  // Reverse sync: remove entries whose Google Calendar events were deleted
+  let gcalDeleted = 0;
+  const teamCalId = process.env.TEAM_CALENDAR_ID;
+  if (teamCalId) {
+    const accessToken = (session as any).accessToken;
+    if (accessToken) {
+      const linkedEntries = await sql`
+        SELECT DISTINCT google_event_id FROM team_calendar_entries
+        WHERE google_event_id IS NOT NULL AND google_event_id != ''
+      `;
+      for (const row of linkedEntries) {
+        try {
+          const res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(teamCalId)}/events/${encodeURIComponent(row.google_event_id)}`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          if (res.status === 404 || res.status === 410) {
+            await sql`DELETE FROM team_calendar_entries WHERE google_event_id = ${row.google_event_id}`;
+            gcalDeleted++;
+          }
+        } catch {}
+      }
+    }
+  }
+
+  return NextResponse.json({ synced, failed, total: members.length, notionOOO: ooo, gcalDeleted });
 }

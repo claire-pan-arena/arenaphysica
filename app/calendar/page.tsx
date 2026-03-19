@@ -167,34 +167,25 @@ function getDisplayName(fullName: string): string {
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ENTRY_TYPES = [
-  { value: "travel", label: "Travel" },
   { value: "sales", label: "Sales" },
   { value: "deployment", label: "Deployment" },
   { value: "ooo", label: "OOO" },
 ];
 
 function getCellStyle(entryType: string, source: string) {
-  const isConfirmed = source === "manual" || source === "notion_ooo";
   const isDetected = source === "google_calendar" || source === "suggestion";
 
   if (entryType === "ooo") {
     if (isDetected) return "bg-red-500/10 border border-dashed border-red-500/20 text-red-300/50";
     return "bg-red-500/10 border border-red-500/20 text-red-300/60";
   }
-  if (entryType === "sales") {
-    if (isDetected) return "bg-purple-500/10 border border-dashed border-purple-500/20 text-purple-400/50";
-    return "bg-purple-500/15 border border-purple-500/25 text-purple-400/80";
-  }
   if (entryType === "deployment") {
     if (isDetected) return "bg-blue-500/10 border border-dashed border-blue-500/20 text-blue-400/50";
     return "bg-blue-500/15 border border-blue-500/25 text-blue-400/80";
   }
-  if (isDetected) {
-    // Auto-detected / suggested travel — amber/yellow
-    return "bg-amber-500/15 border border-dashed border-amber-500/25 text-amber-400/80";
-  }
-  // Confirmed / manual travel — green
-  return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
+  // Sales (and any legacy travel entries)
+  if (isDetected) return "bg-purple-500/10 border border-dashed border-purple-500/20 text-purple-400/50";
+  return "bg-purple-500/15 border border-purple-500/25 text-purple-400/80";
 }
 
 interface ModalState {
@@ -319,7 +310,7 @@ export default function CalendarPage() {
   };
 
   const handleSaveEntry = async () => {
-    if (!modal || !modal.location.trim()) return;
+    if (!modal || !modal.location.trim() || !modal.memberEmail) return;
 
     // Delete old entries if editing
     if (modal.editIds) {
@@ -338,12 +329,16 @@ export default function CalendarPage() {
       ...modal.additionalMembers,
     ];
 
+    // Collect entry IDs per person so we can link them to gcal events
+    const personEntryIds: Map<string, string[]> = new Map();
+
     for (const person of people) {
+      const ids: string[] = [];
       const start = new Date(modal.startDate + "T12:00:00");
       const end = new Date(modal.endDate + "T12:00:00");
       const d = new Date(start);
       while (d <= end) {
-        await fetch("/api/team-calendar", {
+        const res = await fetch("/api/team-calendar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -356,11 +351,14 @@ export default function CalendarPage() {
             forName: person.name,
           }),
         });
+        const data = await res.json().catch(() => ({}));
+        if (data.id) ids.push(data.id);
         d.setDate(d.getDate() + 1);
       }
+      personEntryIds.set(person.email, ids);
     }
 
-    // Create Google Calendar events for each person
+    // Create Google Calendar events for each person and link event IDs back
     if (!modal.editIds) {
       for (const person of people) {
         try {
@@ -374,10 +372,23 @@ export default function CalendarPage() {
               forName: person.name,
             }),
           });
+          const gcalData = await gcalRes.json().catch(() => ({}));
           if (!gcalRes.ok) {
-            const err = await gcalRes.json().catch(() => ({}));
-            console.error("[gcal-event] Failed:", err);
-            alert(`Google Calendar event failed for ${person.name}: ${err.error || "Unknown error"}. Try signing out and back in.`);
+            console.error("[gcal-event] Failed:", gcalData);
+            alert(`Google Calendar event failed for ${person.name}: ${gcalData.error || "Unknown error"}. Try signing out and back in.`);
+          } else {
+            const { eventId } = gcalData;
+            // Link google_event_id to the entries we just created
+            if (eventId) {
+              const ids = personEntryIds.get(person.email) || [];
+              for (const id of ids) {
+                await fetch("/api/team-calendar", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id, googleEventId: eventId }),
+                });
+              }
+            }
           }
         } catch (err) {
           console.error("[gcal-event] Exception:", err);
@@ -478,7 +489,7 @@ export default function CalendarPage() {
       memberName: currentMember?.name,
       additionalMembers: [],
       location: suggestion.location,
-      entryType: "travel",
+      entryType: "sales",
       note: "",
       customer: "",
       startDate: suggestion.startDate,
@@ -533,7 +544,7 @@ export default function CalendarPage() {
             id: `${sug.id}-${dateStr}`,
             date: dateStr,
             location: sug.location,
-            entryType: "travel",
+            entryType: "sales",
             note: "",
             source: "suggestion",
             customer: "",
@@ -576,6 +587,22 @@ export default function CalendarPage() {
               Team Calendar
             </h1>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setModal({
+                  memberEmail: "",
+                  memberName: undefined,
+                  additionalMembers: [],
+                  location: "",
+                  entryType: "sales",
+                  note: "",
+                  customer: "",
+                  startDate: formatDate(new Date()),
+                  endDate: formatDate(new Date()),
+                })}
+                className="px-4 py-2 text-[10px] tracking-widest uppercase border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors"
+              >
+                + New Entry
+              </button>
               <button
                 onClick={handleSync}
                 disabled={syncing}
@@ -665,14 +692,6 @@ export default function CalendarPage() {
                         <td colSpan={days.length + 1} className="px-2 py-1.5">
                           <div className="flex items-center gap-5 text-[9px] text-white/35 uppercase tracking-widest">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
-                              Confirmed
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded bg-amber-500/15 border border-amber-500/25" />
-                              Detected
-                            </div>
-                            <div className="flex items-center gap-1.5">
                               <div className="w-2.5 h-2.5 rounded bg-purple-500/15 border border-purple-500/25" />
                               Sales
                             </div>
@@ -683,6 +702,10 @@ export default function CalendarPage() {
                             <div className="flex items-center gap-1.5">
                               <div className="w-2.5 h-2.5 rounded bg-red-500/10 border border-red-500/20" />
                               OOO
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded border border-dashed border-white/20" />
+                              Detected
                             </div>
                           </div>
                         </td>
@@ -830,7 +853,7 @@ export default function CalendarPage() {
                                         memberName: member.name,
                                         additionalMembers: [],
                                         location: "",
-                                        entryType: "travel",
+                                        entryType: "sales",
                                         note: "",
                                         customer: "",
                                         startDate: dateStr,
@@ -944,6 +967,51 @@ export default function CalendarPage() {
             </h3>
 
             <div className="space-y-3">
+              {/* Member picker when opened from header + New Entry */}
+              {!modal.memberEmail && !modal.editIds && (
+                <div className="relative">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">For *</label>
+                  {modal.memberName ? (
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-white/10 rounded text-white/70">
+                        {modal.memberName}
+                        <button
+                          onClick={() => setModal({ ...modal, memberEmail: "", memberName: undefined })}
+                          className="text-white/30 hover:text-white/60"
+                        >
+                          x
+                        </button>
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowMemberPicker(!showMemberPicker)}
+                        className="px-2 py-1 text-[11px] text-white/30 border border-dashed border-white/15 rounded hover:border-white/30 hover:text-white/50 transition-colors"
+                      >
+                        + Select person
+                      </button>
+                      {showMemberPicker && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-[#1e2530] border border-white/10 rounded-lg max-h-[200px] overflow-y-auto shadow-xl">
+                          {members.map((m) => (
+                            <button
+                              key={m.email}
+                              onClick={() => {
+                                setModal({ ...modal, memberEmail: m.email, memberName: m.name });
+                                setShowMemberPicker(false);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/[0.08] transition-colors"
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Location / City *</label>
                 <input
@@ -1166,7 +1234,7 @@ export default function CalendarPage() {
                 </button>
                 <button
                   onClick={handleSaveEntry}
-                  disabled={!modal.location.trim()}
+                  disabled={!modal.location.trim() || !modal.memberEmail}
                   className="px-4 py-2 text-xs text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-30"
                 >
                   {modal.editIds ? "Save" : "Add"}

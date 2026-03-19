@@ -129,7 +129,7 @@ export async function PATCH(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { id, date, location, entryType, note, source, customer } = await request.json();
+  const { id, date, location, entryType, note, source, customer, googleEventId } = await request.json();
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
@@ -153,6 +153,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (customer !== undefined) {
     await sql`UPDATE team_calendar_entries SET customer = ${customer} WHERE id = ${id}`;
+  }
+  if (googleEventId !== undefined) {
+    await sql`UPDATE team_calendar_entries SET google_event_id = ${googleEventId} WHERE id = ${id}`;
   }
 
   return NextResponse.json({ ok: true });

@@ -94,12 +94,19 @@ export async function syncNotionOOO(
   const members = await sql`SELECT email, name FROM team_members`;
   const nameToEmail: Record<string, string> = {};
   const nameToFullName: Record<string, string> = {};
+  // Track first names that appear more than once to avoid ambiguous matches
+  const firstNameCount: Record<string, number> = {};
+  for (const m of members) {
+    const firstName = m.name.toLowerCase().split(" ")[0];
+    firstNameCount[firstName] = (firstNameCount[firstName] || 0) + 1;
+  }
   for (const m of members) {
     const lower = m.name.toLowerCase();
     nameToEmail[lower] = m.email;
     nameToFullName[lower] = m.name;
     const firstName = lower.split(" ")[0];
-    if (!nameToEmail[firstName]) {
+    // Only allow first-name matching if the first name is unique
+    if (firstNameCount[firstName] === 1) {
       nameToEmail[firstName] = m.email;
       nameToFullName[firstName] = m.name;
     }
