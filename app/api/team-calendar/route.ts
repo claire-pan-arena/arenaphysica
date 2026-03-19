@@ -120,7 +120,7 @@ export async function PATCH(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { id, date, location, entryType, note } = await request.json();
+  const { id, date, location, entryType, note, source } = await request.json();
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
@@ -138,6 +138,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (note !== undefined) {
     await sql`UPDATE team_calendar_entries SET note = ${note} WHERE id = ${id}`;
+  }
+  if (source !== undefined) {
+    await sql`UPDATE team_calendar_entries SET source = ${source} WHERE id = ${id}`;
   }
 
   return NextResponse.json({ ok: true });

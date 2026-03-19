@@ -282,6 +282,17 @@ export default function CalendarPage() {
     fetchSuggestions();
   };
 
+  const handleConfirmSpan = async (entryIds: string[]) => {
+    for (const id of entryIds) {
+      await fetch("/api/team-calendar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, source: "manual" }),
+      });
+    }
+    fetchData();
+  };
+
   const handleDeleteSpan = async (entryIds: string[]) => {
     for (const id of entryIds) {
       await fetch("/api/team-calendar", {
@@ -580,6 +591,15 @@ export default function CalendarPage() {
                                             {formatDateRange(span.startDate, span.endDate)}
                                           </span>
                                         )}
+                                        {span.source === "google_calendar" && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); handleConfirmSpan(span.entryIds); }}
+                                            className="absolute -top-1 -left-1 w-4 h-4 bg-[#a3b18a]/30 rounded-full text-[10px] text-[#a3b18a] hover:bg-[#a3b18a]/50 hidden group-hover:flex items-center justify-center"
+                                            title="Confirm"
+                                          >
+                                            &#10003;
+                                          </button>
+                                        )}
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handleDeleteSpan(span.entryIds); }}
                                           className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
@@ -643,9 +663,17 @@ export default function CalendarPage() {
             {/* Right: Suggestions panel */}
             <div className="w-[320px] shrink-0">
               <div className="sticky top-20">
-                <h2 className="text-[10px] tracking-widest uppercase text-white/40 mb-4">
-                  Detected from your calendar
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[10px] tracking-widest uppercase text-white/40">
+                    Detected from your calendar
+                  </h2>
+                  <button
+                    onClick={() => { fetchSuggestions(); setSugLimit(5); }}
+                    className="text-[10px] text-white/30 hover:text-white/50 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </div>
 
                 {loadingSuggestions ? (
                   <p className="text-white/30 text-xs">Scanning calendar...</p>
