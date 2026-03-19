@@ -1,9 +1,10 @@
 import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
 import { isOfficeOrVirtual, isSocialEvent, normalizeToCity } from "@/lib/city-utils";
+import { getAccessTokenForUser as getServiceAccountToken } from "@/lib/google-service-account";
 import { NextRequest, NextResponse } from "next/server";
 
-async function getAccessTokenForUser(refreshToken: string): Promise<string | null> {
+async function getAccessTokenViaRefresh(refreshToken: string): Promise<string | null> {
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
   const end = new Date(start);
   end.setDate(end.getDate() + (weeks || 2) * 7);
 
-  const members = await sql`SELECT email, name, refresh_token FROM team_members WHERE refresh_token IS NOT NULL`;
+  const members = await sql`SELECT email, name, refresh_token FROM team_members`;
 
   // Get each member's home base
   const prefs = await sql`SELECT user_email, home_base FROM travel_preferences`;
@@ -54,7 +55,11 @@ export async function POST(request: NextRequest) {
   let failed = 0;
 
   for (const member of members) {
-    const accessToken = await getAccessTokenForUser(member.refresh_token);
+    // Try service account (domain-wide delegation) first, fall back to refresh token
+    let accessToken = await getServiceAccountToken(member.email);
+    if (!accessToken && member.refresh_token) {
+      accessToken = await getAccessTokenViaRefresh(member.refresh_token);
+    }
     if (!accessToken) {
       failed++;
       continue;

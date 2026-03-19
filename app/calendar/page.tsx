@@ -424,7 +424,7 @@ export default function CalendarPage() {
                                         className={`group relative px-1.5 py-0.5 rounded text-[10px] leading-tight ${getCellStyle(entry.entryType)}`}
                                         title={entry.note || entry.location}
                                       >
-                                        <span className="truncate block">{entry.location.split(",")[0]}</span>
+                                        <span className="truncate block">{entry.location}</span>
                                         <button
                                           onClick={() => handleDelete(entry.id)}
                                           className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
