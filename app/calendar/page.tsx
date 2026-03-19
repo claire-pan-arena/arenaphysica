@@ -360,25 +360,28 @@ export default function CalendarPage() {
       }
     }
 
-    // Create Google Calendar event for the current user's entry
+    // Create Google Calendar events for each person
     if (!modal.editIds) {
-      try {
-        const gcalRes = await fetch("/api/team-calendar/gcal-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: modal.location.trim(),
-            startDate: modal.startDate,
-            endDate: modal.endDate,
-          }),
-        });
-        if (!gcalRes.ok) {
-          const err = await gcalRes.json().catch(() => ({}));
-          console.error("[gcal-event] Failed:", err);
-          alert(`Google Calendar event failed: ${err.error || "Unknown error"}. Try signing out and back in.`);
+      for (const person of people) {
+        try {
+          const gcalRes = await fetch("/api/team-calendar/gcal-event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              location: modal.location.trim(),
+              startDate: modal.startDate,
+              endDate: modal.endDate,
+              forName: person.name,
+            }),
+          });
+          if (!gcalRes.ok) {
+            const err = await gcalRes.json().catch(() => ({}));
+            console.error("[gcal-event] Failed:", err);
+            alert(`Google Calendar event failed for ${person.name}: ${err.error || "Unknown error"}. Try signing out and back in.`);
+          }
+        } catch (err) {
+          console.error("[gcal-event] Exception:", err);
         }
-      } catch (err) {
-        console.error("[gcal-event] Exception:", err);
       }
     }
 

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No access token" }, { status: 400 });
   }
 
-  const { location, startDate, endDate, forEmail } = await request.json();
+  const { location, startDate, endDate, forName } = await request.json();
   if (!location || !startDate || !endDate) {
     return NextResponse.json({ error: "location, startDate, endDate required" }, { status: 400 });
   }
@@ -20,8 +20,9 @@ export async function POST(request: NextRequest) {
   // Extract state/country from location for the event title
   const parts = location.split(",").map((s: string) => s.trim());
   const region = parts.length > 1 ? parts[parts.length - 1] : location;
-  const name = session.user.name?.split(" ")[0] || "Someone";
-  const summary = `${name} in ${region}`;
+  const fullName = forName || session.user.name || "Someone";
+  const firstName = fullName.split(" ")[0];
+  const summary = `${firstName} in ${region}`;
 
   // Use all-day event format: endDate needs to be the day AFTER the last day
   const endPlusOne = new Date(endDate + "T12:00:00");
