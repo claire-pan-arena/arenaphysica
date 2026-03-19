@@ -171,6 +171,7 @@ const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ENTRY_TYPES = [
   { value: "travel", label: "Travel" },
+  { value: "sales", label: "Sales" },
   { value: "deployment", label: "Deployment" },
   { value: "ooo", label: "OOO" },
 ];
@@ -182,6 +183,10 @@ function getCellStyle(entryType: string, source: string) {
   if (entryType === "ooo") {
     if (isDetected) return "bg-red-500/10 border border-dashed border-red-500/20 text-red-300/50";
     return "bg-red-500/10 border border-red-500/20 text-red-300/60";
+  }
+  if (entryType === "sales") {
+    if (isDetected) return "bg-purple-500/10 border border-dashed border-purple-500/20 text-purple-400/50";
+    return "bg-purple-500/15 border border-purple-500/25 text-purple-400/80";
   }
   if (entryType === "deployment") {
     if (isDetected) return "bg-blue-500/10 border border-dashed border-blue-500/20 text-blue-400/50";
@@ -798,6 +803,10 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/25" />
                   Detected
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-purple-500/15 border border-purple-500/25" />
+                  Sales
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-blue-500/15 border border-blue-500/25" />
