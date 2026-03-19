@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  Calendar,
   Users,
   Zap,
   Shield,
@@ -10,6 +11,10 @@ import {
   Circle,
   Plus,
   BarChart3,
+  ExternalLink,
+  Star,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import {
   Card,
@@ -29,6 +34,23 @@ interface Props {
   onRefresh: () => void;
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  time: string;
+  date: string;
+  isoDate: string;
+  location: string | null;
+  attendees: { email: string; name: string; isExternal: boolean; personId?: string; isChampion?: boolean }[];
+  attendeeCount: number;
+  externalCount: number;
+  hasExternal: boolean;
+  isLogged: boolean;
+  isPast: boolean;
+  suggestedDeploymentId: string | null;
+  suggestedDeploymentName: string | null;
+}
+
 interface IntelDossier {
   group_id: string;
   group_name: string;
@@ -45,10 +67,15 @@ export default function MeetingsView({ filterCompany, filterGroup, onRefresh }: 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [dossiers, setDossiers] = useState<IntelDossier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"timeline" | "dossier">("timeline");
+  const [tab, setTab] = useState<"calendar" | "timeline" | "dossier">("calendar");
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
+  // Calendar state
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [prefillMeeting, setPrefillMeeting] = useState<Partial<Meeting> | null>(null);
 
   const fetchMeetings = () => {
     setLoading(true);
@@ -71,11 +98,47 @@ export default function MeetingsView({ filterCompany, filterGroup, onRefresh }: 
     fetchMeetings();
   }, [filterCompany, filterGroup]);
 
+  // Fetch Google Calendar events
+  useEffect(() => {
+    if (tab !== "calendar") return;
+    setCalendarLoading(true);
+    setCalendarError(null);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch(`/api/ds/calendar?tz=${encodeURIComponent(tz)}&days=14&past=true`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error === "reauth") {
+          setCalendarError("Calendar access expired. Please sign out and back in to re-authorize Google Calendar.");
+        } else if (d.error) {
+          setCalendarError(d.message || d.error);
+        } else {
+          setCalendarEvents(d.events || []);
+        }
+      })
+      .catch((e) => setCalendarError(e.message))
+      .finally(() => setCalendarLoading(false));
+  }, [tab]);
+
   const handleSaved = () => {
     fetchMeetings();
     onRefresh();
     setShowForm(false);
     setEditMeeting(null);
+  };
+
+  const logFromCalendar = (event: CalendarEvent) => {
+    const externalAttendees = event.attendees
+      .filter((a) => a.isExternal)
+      .map((a) => a.name);
+
+    setPrefillMeeting({
+      date: event.isoDate,
+      type: "ad_hoc",
+      attendees: externalAttendees,
+      notes: `Calendar event: ${event.title}\nTime: ${event.time}\n${event.location ? `Location: ${event.location}\n` : ""}`,
+      deployment_id: event.suggestedDeploymentId || undefined,
+    } as any);
+    setShowForm(true);
   };
 
   // Sort meetings reverse chronologically
@@ -100,6 +163,16 @@ export default function MeetingsView({ filterCompany, filterGroup, onRefresh }: 
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTab("calendar")}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+              tab === "calendar"
+                ? "bg-indigo-500 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" /> Calendar
+          </button>
           <button
             onClick={() => setTab("timeline")}
             className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
@@ -128,6 +201,123 @@ export default function MeetingsView({ filterCompany, filterGroup, onRefresh }: 
           <Plus className="w-3.5 h-3.5" /> Log Meeting
         </button>
       </div>
+
+      {/* ─── Google Calendar ─── */}
+      {tab === "calendar" && (
+        <>
+          {calendarLoading ? (
+            <div className="flex flex-col gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white rounded-[10px] border border-gray-200 p-4 animate-pulse">
+                  <div className="h-4 w-40 rounded bg-gray-100 mb-2" />
+                  <div className="h-3 w-56 rounded bg-gray-50" />
+                </div>
+              ))}
+            </div>
+          ) : calendarError ? (
+            <Card>
+              <div className="flex items-center gap-2 text-amber-600 mb-2">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Calendar Access Required</span>
+              </div>
+              <p className="text-[12px] text-gray-600 mb-3">{calendarError}</p>
+              <a
+                href="/api/auth/signout"
+                className="inline-flex items-center gap-1 rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 transition-colors"
+              >
+                Sign Out to Re-authorize
+              </a>
+            </Card>
+          ) : calendarEvents.length === 0 ? (
+            <EmptyState message="No external meetings found in the next 2 weeks. Only meetings with non-Arena attendees are shown." />
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-[11px] text-gray-400 mb-1">
+                Showing external meetings (with non-@arena-ai.com attendees) from the past week through 2 weeks ahead.
+              </p>
+              {calendarEvents.map((event) => {
+                const externalAttendees = event.attendees.filter((a) => a.isExternal);
+                const knownAttendees = event.attendees.filter((a) => a.personId);
+
+                return (
+                  <Card key={event.id} borderLeft={event.isPast ? (event.isLogged ? "#16a34a" : "#f59e0b") : "#6366f1"}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{event.title}</span>
+                        {event.isPast && event.isLogged && (
+                          <Badge color="#16a34a" bg="#f0fdf4">Logged</Badge>
+                        )}
+                        {event.isPast && !event.isLogged && (
+                          <Badge color="#f59e0b" bg="#fffbeb">Not Logged</Badge>
+                        )}
+                        {!event.isPast && (
+                          <Badge color="#6366f1" bg="#eef2ff">Upcoming</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        {event.date} at {event.time}
+                      </div>
+                    </div>
+
+                    {/* Attendees */}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {externalAttendees.map((att, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${
+                            att.personId
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
+                          }`}
+                        >
+                          {att.isChampion && <Star className="w-2.5 h-2.5 text-amber-400" />}
+                          {att.name}
+                          {att.personId && " ✓"}
+                        </span>
+                      ))}
+                      {event.attendeeCount - externalAttendees.length > 0 && (
+                        <span className="text-[10px] text-gray-400">
+                          + {event.attendeeCount - externalAttendees.length} Arena
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Suggested deployment + action */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {event.suggestedDeploymentName && (
+                          <Badge color="#6b7280" bg="#f3f4f6">
+                            {event.suggestedDeploymentName}
+                          </Badge>
+                        )}
+                        {knownAttendees.length > 0 && (
+                          <span className="text-[10px] text-indigo-500">
+                            {knownAttendees.length} known contact{knownAttendees.length !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {event.location && (
+                          <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                            <ExternalLink className="w-2.5 h-2.5" /> {event.location}
+                          </span>
+                        )}
+                      </div>
+                      {!event.isLogged && (
+                        <button
+                          onClick={() => logFromCalendar(event)}
+                          className="flex items-center gap-1 rounded-lg bg-indigo-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-600 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" /> Log Meeting
+                        </button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
 
       {/* ─── Meeting Timeline ─── */}
       {tab === "timeline" && (
@@ -396,10 +586,11 @@ export default function MeetingsView({ filterCompany, filterGroup, onRefresh }: 
       {/* CRUD */}
       {showForm && (
         <MeetingForm
-          meeting={editMeeting}
+          meeting={editMeeting || prefillMeeting as any}
           onClose={() => {
             setShowForm(false);
             setEditMeeting(null);
+            setPrefillMeeting(null);
           }}
           onSaved={handleSaved}
         />
