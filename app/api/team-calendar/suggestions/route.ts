@@ -96,43 +96,54 @@ const STATE_MAP: Record<string, string> = {
   DC: "Washington, DC",
 };
 
-// Known city aliases
-const CITY_ALIASES: Record<string, string> = {
-  "la": "Los Angeles, California",
-  "lax": "Los Angeles, California",
-  "los angeles": "Los Angeles, California",
-  "sf": "San Francisco, California",
-  "sfo": "San Francisco, California",
-  "san francisco": "San Francisco, California",
-  "nyc": "New York, New York",
-  "new york": "New York, New York",
-  "jfk": "New York, New York",
-  "irvine": "Irvine, California",
-  "costa mesa": "Costa Mesa, California",
-  "chicago": "Chicago, Illinois",
-  "seattle": "Seattle, Washington",
-  "austin": "Austin, Texas",
-  "boston": "Boston, Massachusetts",
-  "dc": "Washington, DC",
-  "washington": "Washington, DC",
-  "miami": "Miami, Florida",
-  "denver": "Denver, Colorado",
-  "atlanta": "Atlanta, Georgia",
-  "dallas": "Dallas, Texas",
-  "houston": "Houston, Texas",
-  "phoenix": "Phoenix, Arizona",
-  "portland": "Portland, Oregon",
-  "san diego": "San Diego, California",
-  "san jose": "San Jose, California",
-  "detroit": "Detroit, Michigan",
-};
+// Known city aliases — use word-boundary matching to avoid false positives
+// (e.g. "la" should not match "Plaza" or "Place")
+const CITY_ALIASES: [RegExp, string][] = [
+  [/\blos\s*angeles\b/i, "Los Angeles, California"],
+  [/\blax\b/i, "Los Angeles, California"],
+  [/\bsan\s*francisco\b/i, "San Francisco, California"],
+  [/\bsfo\b/i, "San Francisco, California"],
+  [/\bnew\s*york\b/i, "New York, New York"],
+  [/\bnyc\b/i, "New York, New York"],
+  [/\bjfk\b/i, "New York, New York"],
+  [/\birvine\b/i, "Irvine, California"],
+  [/\bcosta\s*mesa\b/i, "Costa Mesa, California"],
+  [/\bchicago\b/i, "Chicago, Illinois"],
+  [/\bseattle\b/i, "Seattle, Washington"],
+  [/\baustin\b/i, "Austin, Texas"],
+  [/\bboston\b/i, "Boston, Massachusetts"],
+  [/\bwashington\b/i, "Washington, DC"],
+  [/\bmiami\b/i, "Miami, Florida"],
+  [/\bdenver\b/i, "Denver, Colorado"],
+  [/\batlanta\b/i, "Atlanta, Georgia"],
+  [/\bdallas\b/i, "Dallas, Texas"],
+  [/\bhouston\b/i, "Houston, Texas"],
+  [/\bphoenix\b/i, "Phoenix, Arizona"],
+  [/\bportland\b/i, "Portland, Oregon"],
+  [/\bsan\s*diego\b/i, "San Diego, California"],
+  [/\bsan\s*jose\b/i, "San Jose, California"],
+  [/\bdetroit\b/i, "Detroit, Michigan"],
+];
+
+// Events that are social/internal, not travel
+const SOCIAL_PATTERNS = [
+  /happy\s*hour/i,
+  /team\s*lunch/i,
+  /team\s*dinner/i,
+  /team\s*outing/i,
+  /birthday/i,
+  /celebration/i,
+  /party/i,
+  /drinks/i,
+  /karaoke/i,
+  /bowling/i,
+  /game\s*night/i,
+];
 
 function normalizeToCity(location: string): string | null {
-  const lower = location.toLowerCase().trim();
-
-  // Check known aliases first
-  for (const [alias, city] of Object.entries(CITY_ALIASES)) {
-    if (lower.includes(alias)) return city;
+  // Check known city aliases with word-boundary matching
+  for (const [pattern, city] of CITY_ALIASES) {
+    if (pattern.test(location)) return city;
   }
 
   // Try to extract city from address
@@ -159,10 +170,10 @@ export async function GET() {
   const prefRows = await sql`SELECT home_base FROM travel_preferences WHERE user_email = ${session.user.email}`;
   const homeBase = (prefRows[0]?.home_base || "NYC").toLowerCase();
 
-  // Fetch 90 days of calendar events
+  // Fetch up to 1 year of calendar events
   const now = new Date();
   const lookAhead = new Date(now);
-  lookAhead.setDate(now.getDate() + 90);
+  lookAhead.setDate(now.getDate() + 365);
 
   let events: CalendarEvent[] = [];
   try {
@@ -171,7 +182,7 @@ export async function GET() {
       timeMax: lookAhead.toISOString(),
       singleEvents: "true",
       orderBy: "startTime",
-      maxResults: "200",
+      maxResults: "500",
     });
     const calRes = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
@@ -193,8 +204,9 @@ export async function GET() {
     const summary = event.summary || "";
     const location = event.location || "";
 
-    // Skip virtual and office events
+    // Skip virtual, office, and social events
     if (!location || isOfficeOrVirtual(location, summary)) continue;
+    if (SOCIAL_PATTERNS.some((p) => p.test(summary))) continue;
 
     // Resolve to a city
     const city = normalizeToCity(location);
