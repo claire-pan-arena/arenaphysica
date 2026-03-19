@@ -12,9 +12,28 @@ export async function GET(request: NextRequest) {
   await initDb();
 
   const groupId = request.nextUrl.searchParams.get("group_id");
+  const deploymentId = request.nextUrl.searchParams.get("deployment_id");
 
-  let workstreams;
-  if (groupId) {
+  let workstreams: any[];
+  if (deploymentId) {
+    // Verify deployment ownership
+    const dep = await sql`SELECT owner_email FROM ds_deployments WHERE id = ${deploymentId}`;
+    if (dep.length === 0 || dep[0].owner_email !== session.user.email) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+    // Get all groups for this deployment, then workstreams for those groups
+    const groups = await sql`SELECT id FROM ds_groups WHERE deployment_id = ${deploymentId}`;
+    const gIds = groups.map((g: any) => g.id);
+    if (gIds.length > 0) {
+      workstreams = await sql`
+        SELECT * FROM ds_workstreams
+        WHERE group_id = ANY(${gIds})
+        ORDER BY created_at ASC
+      `;
+    } else {
+      workstreams = [];
+    }
+  } else if (groupId) {
     // Verify ownership chain: group -> deployment -> owner
     const group = await sql`SELECT deployment_id FROM ds_groups WHERE id = ${groupId}`;
     if (group.length === 0) {

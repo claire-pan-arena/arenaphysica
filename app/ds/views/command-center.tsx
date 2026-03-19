@@ -166,7 +166,8 @@ export default function CommandCenter({ filterCompany, filterGroup, onNavigate }
               <div key={dep.id}>
                 <div className="flex items-center gap-2 mb-1">
                   <HealthDot health={dep.health} />
-                  <span className="text-sm font-medium text-gray-900">{dep.company}</span>
+                  <span className="text-sm font-medium text-gray-900">{dep.name || dep.company}</span>
+                  {dep.name && <span className="text-[11px] text-gray-400 ml-1">{dep.company}</span>}
                 </div>
                 <div className="flex flex-wrap gap-2 ml-5">
                   {dep.groups?.map((g, gi) => (

@@ -52,6 +52,13 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
   const [groupMeetings, setGroupMeetings] = useState<Meeting[]>([]);
   const [loadingGroup, setLoadingGroup] = useState(false);
 
+  // Deployment detail data (must be at top level — React hooks rule)
+  const [depPeople, setDepPeople] = useState<Person[]>([]);
+  const [depMeetings, setDepMeetings] = useState<Meeting[]>([]);
+  const [depWorkstreams, setDepWorkstreams] = useState<Workstream[]>([]);
+  const [depLoading, setDepLoading] = useState(false);
+  const [showDepPersonForm, setShowDepPersonForm] = useState(false);
+
   // CRUD
   const [showDeploymentForm, setShowDeploymentForm] = useState(false);
   const [editDeployment, setEditDeployment] = useState<Deployment | null>(null);
@@ -72,6 +79,21 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
   useEffect(() => {
     fetchDeployments();
   }, [filterCompany]);
+
+  // Fetch deployment detail data when a deployment is selected
+  useEffect(() => {
+    if (!selectedDeployment) return;
+    setDepLoading(true);
+    Promise.all([
+      fetch(`/api/ds/people?deployment_id=${selectedDeployment.id}`).then((r) => r.json()),
+      fetch(`/api/ds/meetings?deployment_id=${selectedDeployment.id}&limit=5`).then((r) => r.json()),
+      fetch(`/api/ds/workstreams?deployment_id=${selectedDeployment.id}`).then((r) => r.json()).catch(() => ({ workstreams: [] })),
+    ]).then(([pData, mData, wData]) => {
+      setDepPeople(pData.people || []);
+      setDepMeetings(mData.meetings || []);
+      setDepWorkstreams(wData.workstreams || wData || []);
+    }).catch(() => {}).finally(() => setDepLoading(false));
+  }, [selectedDeployment?.id]);
 
   const drillIntoGroup = (group: Group) => {
     setSelectedGroup(group);
@@ -104,28 +126,6 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
   if (selectedDeployment && !selectedGroup) {
     const dep = selectedDeployment;
     const depGroups = dep.groups || [];
-
-    // Local state for deployment data
-    const [depPeople, setDepPeople] = useState<Person[]>([]);
-    const [depMeetings, setDepMeetings] = useState<Meeting[]>([]);
-    const [depWorkstreams, setDepWorkstreams] = useState<Workstream[]>([]);
-    const [depLoading, setDepLoading] = useState(true);
-    const [showPersonForm, setShowPersonForm] = useState(false);
-
-    // Fetch deployment data on mount
-    useEffect(() => {
-      setDepLoading(true);
-      Promise.all([
-        fetch(`/api/ds/people?deployment_id=${dep.id}`).then((r) => r.json()),
-        fetch(`/api/ds/meetings?deployment_id=${dep.id}&limit=5`).then((r) => r.json()),
-        fetch(`/api/ds/workstreams?deployment_id=${dep.id}`).then((r) => r.json()).catch(() => ({ workstreams: [] })),
-      ]).then(([pData, mData, wData]) => {
-        setDepPeople(pData.people || []);
-        setDepMeetings(mData.meetings || []);
-        setDepWorkstreams(wData.workstreams || wData || []);
-        setDepLoading(false);
-      }).catch(() => setDepLoading(false));
-    }, [dep.id]);
 
     // Aggregate expansion signals and competitive intel from meetings
     const allSignals: string[] = [];
@@ -173,7 +173,7 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
               Edit
             </button>
             <button
-              onClick={() => setShowPersonForm(true)}
+              onClick={() => setShowDepPersonForm(true)}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-indigo-600 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> Add Person
@@ -398,12 +398,12 @@ export default function DeploymentsView({ filterCompany, onRefresh }: Props) {
             onSaved={handleSaved}
           />
         )}
-        {showPersonForm && (
+        {showDepPersonForm && (
           <PersonForm
             deploymentId={dep.id}
-            onClose={() => setShowPersonForm(false)}
+            onClose={() => setShowDepPersonForm(false)}
             onSaved={() => {
-              setShowPersonForm(false);
+              setShowDepPersonForm(false);
               handleSaved();
               // Refresh deployment data
               fetch(`/api/ds/people?deployment_id=${dep.id}`).then((r) => r.json()).then((d) => setDepPeople(d.people || []));

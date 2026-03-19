@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
 
     return {
       id: d.id,
+      name: d.name || "",
       company: d.company,
       health: d.health,
       status: d.status,

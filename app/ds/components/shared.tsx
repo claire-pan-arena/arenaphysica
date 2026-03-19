@@ -438,6 +438,7 @@ export interface CommandData {
   this_week: SnapshotItem[];
   deployment_health: {
     id: string;
+    name?: string;
     company: string;
     health: string;
     groups: { name: string; health: string; completion_pct: number }[];
