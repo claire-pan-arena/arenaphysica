@@ -599,21 +599,24 @@ export default function CalendarPage() {
                                             {formatDateRange(span.startDate, span.endDate)}
                                           </span>
                                         )}
-                                        {span.source === "google_calendar" && (
+                                        <div className="hidden group-hover:flex items-center justify-center gap-2 mt-1">
+                                          {span.source === "google_calendar" && (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); handleConfirmSpan(span.entryIds); }}
+                                              className="text-[9px] text-[#a3b18a]/70 hover:text-[#a3b18a] transition-colors"
+                                              title="Confirm"
+                                            >
+                                              Confirm
+                                            </button>
+                                          )}
                                           <button
-                                            onClick={(e) => { e.stopPropagation(); handleConfirmSpan(span.entryIds); }}
-                                            className="absolute -top-1 -left-1 w-4 h-4 bg-[#a3b18a]/30 rounded-full text-[10px] text-[#a3b18a] hover:bg-[#a3b18a]/50 hidden group-hover:flex items-center justify-center"
-                                            title="Confirm"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteSpan(span.entryIds); }}
+                                            className="text-[9px] text-white/20 hover:text-red-400/70 transition-colors"
+                                            title="Remove"
                                           >
-                                            &#10003;
+                                            Remove
                                           </button>
-                                        )}
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); handleDeleteSpan(span.entryIds); }}
-                                          className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
-                                        >
-                                          x
-                                        </button>
+                                        </div>
                                       </div>
                                     </td>
                                   );
