@@ -1,6 +1,40 @@
 import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
+import { getAccessTokenForAdmin } from "@/lib/google-service-account";
 import { NextResponse } from "next/server";
+
+async function getActiveOrgEmails(): Promise<Set<string> | null> {
+  const token = await getAccessTokenForAdmin();
+  if (!token) return null;
+
+  const active = new Set<string>();
+  let pageToken = "";
+
+  do {
+    const params = new URLSearchParams({
+      domain: "arena-ai.com",
+      maxResults: "500",
+      query: "isSuspended=false",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const res = await fetch(
+      `https://admin.googleapis.com/admin/directory/v1/users?${params}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    for (const user of data.users || []) {
+      if (!user.suspended) {
+        active.add((user.primaryEmail || "").toLowerCase());
+      }
+    }
+    pageToken = data.nextPageToken || "";
+  } while (pageToken);
+
+  return active;
+}
 
 export async function GET() {
   const session = await auth();
@@ -10,6 +44,9 @@ export async function GET() {
 
   const sql = getDb();
   await initDb();
+
+  // Try to get active org emails from Google Directory
+  const activeEmails = await getActiveOrgEmails();
 
   // Get people already in team_members table
   const existing = await sql`SELECT email, name FROM team_members ORDER BY name`;
@@ -50,8 +87,10 @@ export async function GET() {
               !email.includes("calendar.google.com") &&
               !knownEmails.has(email)
             ) {
+              // Skip if we know this email is deactivated
+              if (activeEmails && !activeEmails.has(email)) continue;
+
               knownEmails.add(email);
-              // Use displayName if available, otherwise derive from email
               const name = attendee.displayName || email.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
               people.push({ email, name });
             }

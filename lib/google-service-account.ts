@@ -21,6 +21,53 @@ function getServiceAccountKey(): ServiceAccountKey | null {
 }
 
 /**
+ * Get an access token for admin directory API via domain-wide delegation.
+ * Impersonates an admin user to list org users.
+ */
+export async function getAccessTokenForAdmin(): Promise<string | null> {
+  const sa = getServiceAccountKey();
+  if (!sa) return null;
+
+  const adminEmail = process.env.GOOGLE_ADMIN_EMAIL || "";
+  if (!adminEmail) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
+    JSON.stringify({
+      iss: sa.client_email,
+      sub: adminEmail,
+      scope: "https://www.googleapis.com/auth/admin.directory.user.readonly",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    })
+  );
+
+  const signable = `${header}.${payload}`;
+  const sign = crypto.createSign("RSA-SHA256");
+  sign.update(signable);
+  const signature = base64url(sign.sign(sa.private_key));
+  const jwt = `${signable}.${signature}`;
+
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get an access token for a user via domain-wide delegation.
  * Uses a service account to impersonate the user and access their calendar.
  */
