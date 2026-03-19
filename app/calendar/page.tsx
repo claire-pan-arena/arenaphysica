@@ -18,6 +18,14 @@ interface TeamMember {
   entries: CalendarEntry[];
 }
 
+interface TravelSuggestion {
+  id: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  events: { title: string; date: string }[];
+}
+
 function getMonday(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay();
@@ -47,12 +55,24 @@ function formatWeekRange(monday: Date): string {
   return `${mMonth} ${monday.getDate()} - ${sMonth} ${sunday.getDate()}, ${year}`;
 }
 
+function formatDateRange(start: string, end: string): string {
+  const s = new Date(start + "T12:00:00");
+  const e = new Date(end + "T12:00:00");
+  const sMonth = s.toLocaleDateString("en-US", { month: "short" });
+  const eMonth = e.toLocaleDateString("en-US", { month: "short" });
+  if (start === end) {
+    return `${sMonth} ${s.getDate()}`;
+  }
+  if (sMonth === eMonth) {
+    return `${sMonth} ${s.getDate()} - ${e.getDate()}`;
+  }
+  return `${sMonth} ${s.getDate()} - ${eMonth} ${e.getDate()}`;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ENTRY_TYPES = [
   { value: "travel", label: "Travel" },
-  { value: "office", label: "Office" },
-  { value: "remote", label: "Remote" },
   { value: "ooo", label: "OOO" },
 ];
 
@@ -62,10 +82,6 @@ function getCellStyle(entryType: string) {
       return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
     case "ooo":
       return "bg-red-500/10 border border-red-500/20 text-red-300/60";
-    case "office":
-      return "bg-white/[0.08] border border-white/10 text-white/50";
-    case "remote":
-      return "bg-white/[0.05] border border-white/[0.06] text-white/30";
     default:
       return "bg-white/[0.05] text-white/30";
   }
@@ -76,11 +92,14 @@ export default function CalendarPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [modal, setModal] = useState<{ date: string; existing?: CalendarEntry } | null>(null);
+  const [modal, setModal] = useState<{ date: string } | null>(null);
   const [modalLocation, setModalLocation] = useState("");
   const [modalType, setModalType] = useState("travel");
   const [modalNote, setModalNote] = useState("");
   const [numWeeks, setNumWeeks] = useState(2);
+  const [suggestions, setSuggestions] = useState<TravelSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -93,9 +112,24 @@ export default function CalendarPage() {
       .catch(() => setLoading(false));
   }, [weekStart, numWeeks]);
 
+  const fetchSuggestions = useCallback(() => {
+    setLoadingSuggestions(true);
+    fetch("/api/team-calendar/suggestions")
+      .then((r) => r.json())
+      .then((data) => {
+        setSuggestions(data.suggestions || []);
+        setLoadingSuggestions(false);
+      })
+      .catch(() => setLoadingSuggestions(false));
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, [fetchSuggestions]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -136,6 +170,35 @@ export default function CalendarPage() {
       body: JSON.stringify({ id }),
     });
     fetchData();
+  };
+
+  const handleConfirmSuggestion = async (suggestion: TravelSuggestion) => {
+    setConfirmingId(suggestion.id);
+    // Add an entry for each day in the range
+    const start = new Date(suggestion.startDate + "T12:00:00");
+    const end = new Date(suggestion.endDate + "T12:00:00");
+    const d = new Date(start);
+    while (d <= end) {
+      await fetch("/api/team-calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: formatDate(d),
+          location: suggestion.location,
+          entryType: "travel",
+          note: suggestion.events.map((e) => e.title).join(", "),
+        }),
+      });
+      d.setDate(d.getDate() + 1);
+    }
+    // Remove from suggestions list
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
+    setConfirmingId(null);
+    fetchData();
+  };
+
+  const handleDismissSuggestion = (id: string) => {
+    setSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 
   const prevWeek = () => {
@@ -184,7 +247,7 @@ export default function CalendarPage() {
       <div className="relative z-10">
         <NavHeader />
 
-        <div className="mx-auto max-w-[1400px] px-8 py-6">
+        <div className="mx-auto max-w-[1600px] px-8 py-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <h1
@@ -204,175 +267,226 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Week navigation */}
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={prevWeek}
-              className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-            >
-              Prev
-            </button>
-            <button
-              onClick={today}
-              className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-            >
-              Today
-            </button>
-            <button
-              onClick={nextWeek}
-              className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-            >
-              Next
-            </button>
-            <span className="text-sm text-white/80 ml-2">
-              {formatWeekRange(startDate)}
-              {numWeeks > 1 && (() => {
-                const secondWeekStart = new Date(startDate);
-                secondWeekStart.setDate(startDate.getDate() + 7);
-                return ` - ${formatWeekRange(secondWeekStart)}`;
-              })()}
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-[10px] text-white/40 uppercase tracking-widest">View</span>
-              {[1, 2, 4].map((w) => (
+          <div className="flex gap-8">
+            {/* Left: Calendar grid */}
+            <div className="flex-1 min-w-0">
+              {/* Week navigation */}
+              <div className="flex items-center gap-4 mb-6">
                 <button
-                  key={w}
-                  onClick={() => setNumWeeks(w)}
-                  className={`px-3 py-1.5 text-xs border transition-colors ${
-                    numWeeks === w
-                      ? "border-white/40 text-white bg-white/10"
-                      : "border-white/10 text-white/40 hover:text-white hover:border-white/30"
-                  }`}
+                  onClick={prevWeek}
+                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
                 >
-                  {w}w
+                  Prev
                 </button>
-              ))}
-            </div>
-          </div>
+                <button
+                  onClick={today}
+                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={nextWeek}
+                  className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
+                >
+                  Next
+                </button>
+                <span className="text-sm text-white/80 ml-2">
+                  {formatWeekRange(startDate)}
+                  {numWeeks > 1 && (() => {
+                    const secondWeekStart = new Date(startDate);
+                    secondWeekStart.setDate(startDate.getDate() + 7);
+                    return ` - ${formatWeekRange(secondWeekStart)}`;
+                  })()}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-[10px] text-white/40 uppercase tracking-widest">View</span>
+                  {[1, 2, 4].map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => setNumWeeks(w)}
+                      className={`px-3 py-1.5 text-xs border transition-colors ${
+                        numWeeks === w
+                          ? "border-white/40 text-white bg-white/10"
+                          : "border-white/10 text-white/40 hover:text-white hover:border-white/30"
+                      }`}
+                    >
+                      {w}w
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Calendar grid */}
-          {loading ? (
-            <p className="text-white/40 text-sm">Loading...</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="text-left text-[10px] tracking-widest uppercase text-white/40 px-3 py-2 w-[140px] sticky left-0 bg-[#1e2530] z-10">
-                      Team
-                    </th>
-                    {days.map((day) => {
-                      const isToday = formatDate(day) === todayStr;
-                      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                      const dayIdx = (day.getDay() + 6) % 7; // Mon=0
-                      return (
-                        <th
-                          key={formatDate(day)}
-                          className={`text-center text-[10px] tracking-widest uppercase px-1 py-2 min-w-[90px] ${
-                            isToday ? "text-white" : isWeekend ? "text-white/20" : "text-white/40"
-                          }`}
-                        >
-                          <div>{DAY_LABELS[dayIdx]}</div>
-                          <div className={`text-xs mt-0.5 ${isToday ? "text-white font-medium" : ""}`}>
-                            {formatDisplayDate(day)}
-                          </div>
-                          {isToday && <div className="h-[2px] bg-[#a3b18a] mt-1 rounded" />}
+              {/* Calendar grid */}
+              {loading ? (
+                <p className="text-white/40 text-sm">Loading...</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-[10px] tracking-widest uppercase text-white/40 px-3 py-2 w-[140px] sticky left-0 bg-[#1e2530] z-10">
+                          Team
                         </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.length === 0 ? (
-                    <tr>
-                      <td colSpan={days.length + 1} className="text-center text-white/30 text-sm py-12">
-                        No team members yet. Team members appear once they sign in.
-                      </td>
-                    </tr>
-                  ) : (
-                    members.map((member) => (
-                      <tr key={member.email} className="border-t border-white/[0.06]">
-                        <td className="px-3 py-2 sticky left-0 bg-[#1e2530] z-10">
-                          <div className="text-xs text-white/80">{member.name.split(" ")[0]}</div>
-                        </td>
                         {days.map((day) => {
-                          const dateStr = formatDate(day);
+                          const isToday = formatDate(day) === todayStr;
                           const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                          const dayEntries = member.entries.filter((e) => e.date === dateStr);
-
+                          const dayIdx = (day.getDay() + 6) % 7;
                           return (
-                            <td
-                              key={dateStr}
-                              className={`px-1 py-1.5 ${isWeekend ? "bg-white/[0.02]" : ""}`}
+                            <th
+                              key={formatDate(day)}
+                              className={`text-center text-[10px] tracking-widest uppercase px-1 py-2 min-w-[80px] ${
+                                isToday ? "text-white" : isWeekend ? "text-white/20" : "text-white/40"
+                              }`}
                             >
-                              <div className="flex flex-col gap-0.5">
-                                {dayEntries.map((entry) => (
-                                  <div
-                                    key={entry.id}
-                                    className={`group relative px-2 py-1 rounded text-[11px] leading-tight ${getCellStyle(entry.entryType)}`}
-                                    title={entry.note || entry.location}
-                                  >
-                                    <span className="truncate block">{entry.location}</span>
-                                    {entry.source === "google_calendar" && (
-                                      <span className="text-[8px] opacity-40 ml-1">G</span>
-                                    )}
-                                    {entry.source === "manual" && (
-                                      <button
-                                        onClick={() => handleDelete(entry.id)}
-                                        className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
-                                      >
-                                        x
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                                {/* Click to add */}
-                                <button
-                                  onClick={() => {
-                                    setModal({ date: dateStr });
-                                    setModalLocation("");
-                                    setModalType("travel");
-                                    setModalNote("");
-                                  }}
-                                  className={`px-2 py-1 rounded text-[10px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors ${
-                                    dayEntries.length === 0 ? "min-h-[28px]" : ""
-                                  }`}
-                                >
-                                  +
-                                </button>
+                              <div>{DAY_LABELS[dayIdx]}</div>
+                              <div className={`text-xs mt-0.5 ${isToday ? "text-white font-medium" : ""}`}>
+                                {formatDisplayDate(day)}
                               </div>
-                            </td>
+                              {isToday && <div className="h-[2px] bg-[#a3b18a] mt-1 rounded" />}
+                            </th>
                           );
                         })}
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    </thead>
+                    <tbody>
+                      {members.length === 0 ? (
+                        <tr>
+                          <td colSpan={days.length + 1} className="text-center text-white/30 text-sm py-12">
+                            No team members yet. Team members appear once they sign in.
+                          </td>
+                        </tr>
+                      ) : (
+                        members.map((member) => (
+                          <tr key={member.email} className="border-t border-white/[0.06]">
+                            <td className="px-3 py-2 sticky left-0 bg-[#1e2530] z-10">
+                              <div className="text-xs text-white/80">{member.name.split(" ")[0]}</div>
+                            </td>
+                            {days.map((day) => {
+                              const dateStr = formatDate(day);
+                              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                              const dayEntries = member.entries.filter((e) => e.date === dateStr);
 
-          {/* Legend */}
-          <div className="flex items-center gap-6 mt-6 text-[10px] text-white/40 uppercase tracking-widest">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
-              Travel
+                              return (
+                                <td
+                                  key={dateStr}
+                                  className={`px-1 py-1.5 ${isWeekend ? "bg-white/[0.02]" : ""}`}
+                                >
+                                  <div className="flex flex-col gap-0.5">
+                                    {dayEntries.map((entry) => (
+                                      <div
+                                        key={entry.id}
+                                        className={`group relative px-2 py-1 rounded text-[11px] leading-tight ${getCellStyle(entry.entryType)}`}
+                                        title={entry.note || entry.location}
+                                      >
+                                        <span className="truncate block">{entry.location}</span>
+                                        <button
+                                          onClick={() => handleDelete(entry.id)}
+                                          className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
+                                        >
+                                          x
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => {
+                                        setModal({ date: dateStr });
+                                        setModalLocation("");
+                                        setModalType("travel");
+                                        setModalNote("");
+                                      }}
+                                      className={`px-2 py-1 rounded text-[10px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors ${
+                                        dayEntries.length === 0 ? "min-h-[28px]" : ""
+                                      }`}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Legend */}
+              <div className="flex items-center gap-6 mt-6 text-[10px] text-white/40 uppercase tracking-widest">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
+                  Travel
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
+                  OOO
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-white/[0.08] border border-white/10" />
-              Office
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-white/[0.05] border border-white/[0.06]" />
-              Remote
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
-              OOO
-            </div>
-            <div className="flex items-center gap-2 ml-4">
-              <span className="text-[8px] text-white/30">G</span>
-              Synced from Google Calendar
+
+            {/* Right: Suggestions panel */}
+            <div className="w-[320px] shrink-0">
+              <div className="sticky top-20">
+                <h2 className="text-[10px] tracking-widest uppercase text-white/40 mb-4">
+                  Detected from your calendar
+                </h2>
+
+                {loadingSuggestions ? (
+                  <p className="text-white/30 text-xs">Scanning calendar...</p>
+                ) : suggestions.length === 0 ? (
+                  <p className="text-white/30 text-xs">No travel detected in the next 90 days.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {suggestions.map((sug) => (
+                      <div
+                        key={sug.id}
+                        className="border border-white/10 rounded-lg p-4 bg-white/[0.03]"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <div className="text-sm text-white/90 font-medium">{sug.location}</div>
+                            <div className="text-xs text-white/40 mt-0.5">
+                              {formatDateRange(sug.startDate, sug.endDate)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Events that triggered this suggestion */}
+                        <div className="space-y-1 mb-3">
+                          {sug.events.slice(0, 3).map((ev, i) => (
+                            <div key={i} className="text-[11px] text-white/30 truncate">
+                              {ev.title}
+                            </div>
+                          ))}
+                          {sug.events.length > 3 && (
+                            <div className="text-[11px] text-white/20">
+                              +{sug.events.length - 3} more
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Confirm / Dismiss */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleConfirmSuggestion(sug)}
+                            disabled={confirmingId === sug.id}
+                            className="flex-1 px-3 py-1.5 text-[10px] tracking-widest uppercase text-[#a3b18a] border border-[#a3b18a]/30 hover:bg-[#a3b18a]/10 transition-colors disabled:opacity-40"
+                          >
+                            {confirmingId === sug.id ? "Adding..." : "Confirm"}
+                          </button>
+                          <button
+                            onClick={() => handleDismissSuggestion(sug.id)}
+                            className="px-3 py-1.5 text-[10px] tracking-widest uppercase text-white/30 border border-white/10 hover:text-white/50 hover:border-white/20 transition-colors"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -388,12 +502,12 @@ export default function CalendarPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Location</label>
+                <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Location / City</label>
                 <input
                   type="text"
                   value={modalLocation}
                   onChange={(e) => setModalLocation(e.target.value)}
-                  placeholder="e.g. SF, Anduril HQ, NYC"
+                  placeholder="e.g. Los Angeles, SF, Austin"
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                   autoFocus
                 />
@@ -424,7 +538,7 @@ export default function CalendarPage() {
                   type="text"
                   value={modalNote}
                   onChange={(e) => setModalNote(e.target.value)}
-                  placeholder="e.g. Customer visit, team offsite"
+                  placeholder="e.g. Anduril visit, team offsite"
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                 />
               </div>
