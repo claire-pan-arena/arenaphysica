@@ -23,6 +23,7 @@ interface TravelSuggestion {
   location: string;
   startDate: string;
   endDate: string;
+  events?: string[];
 }
 
 /** A group of consecutive same-location entries for one member */
@@ -816,6 +817,13 @@ export default function CalendarPage() {
                           <div className="text-xs text-white/40 mt-0.5">
                             {formatDateRange(sug.startDate, sug.endDate)}
                           </div>
+                          {sug.events && sug.events.length > 0 && (
+                            <div className="mt-1.5 space-y-0.5">
+                              {sug.events.map((ev, i) => (
+                                <div key={i} className="text-[11px] text-white/30 truncate">{ev}</div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <button

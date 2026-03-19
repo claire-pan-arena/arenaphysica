@@ -16,6 +16,7 @@ interface TravelSuggestion {
   location: string;
   startDate: string;
   endDate: string;
+  events: string[];
 }
 
 export async function GET() {
@@ -69,7 +70,7 @@ export async function GET() {
   }
 
   // Find events that suggest travel to a different city
-  const travelEvents: { city: string; date: string; endDate: string }[] = [];
+  const travelEvents: { city: string; date: string; endDate: string; summary: string }[] = [];
 
   for (const event of events) {
     const summary = event.summary || "";
@@ -97,7 +98,7 @@ export async function GET() {
       : event.end?.date || "";
 
     if (startStr) {
-      travelEvents.push({ city, date: startStr, endDate: endStr || startStr });
+      travelEvents.push({ city, date: startStr, endDate: endStr || startStr, summary });
     }
   }
 
@@ -114,23 +115,23 @@ export async function GET() {
     cityEvents.sort((a, b) => a.date.localeCompare(b.date));
 
     // Merge overlapping or directly adjacent events into a single trip
-    const trips: { start: string; end: string }[] = [];
-    let currentTrip: { start: string; end: string } | null = null;
+    const trips: { start: string; end: string; summaries: string[] }[] = [];
+    let currentTrip: { start: string; end: string; summaries: string[] } | null = null;
 
     for (const ev of cityEvents) {
       if (!currentTrip) {
-        currentTrip = { start: ev.date, end: ev.endDate };
+        currentTrip = { start: ev.date, end: ev.endDate, summaries: [ev.summary] };
       } else {
         const lastEnd = new Date(currentTrip.end + "T12:00:00");
         const thisStart = new Date(ev.date + "T12:00:00");
         const gap = (thisStart.getTime() - lastEnd.getTime()) / (1000 * 60 * 60 * 24);
 
         if (gap <= 1) {
-          // Overlapping or next day — extend the trip
           if (ev.endDate > currentTrip.end) currentTrip.end = ev.endDate;
+          if (!currentTrip.summaries.includes(ev.summary)) currentTrip.summaries.push(ev.summary);
         } else {
           trips.push(currentTrip);
-          currentTrip = { start: ev.date, end: ev.endDate };
+          currentTrip = { start: ev.date, end: ev.endDate, summaries: [ev.summary] };
         }
       }
     }
@@ -156,6 +157,7 @@ export async function GET() {
         location: city,
         startDate: trip.start,
         endDate: trip.end,
+        events: trip.summaries,
       });
     }
   }
