@@ -141,6 +141,16 @@ export async function initDb() {
     )
   `;
 
+  // Customer tags for team calendar
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_calendar_customers (
+      name TEXT PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`INSERT INTO team_calendar_customers (name) VALUES ('Apex'), ('Mercury'), ('Bellatrix') ON CONFLICT DO NOTHING`;
+  await sql`ALTER TABLE team_calendar_entries ADD COLUMN IF NOT EXISTS customer TEXT DEFAULT ''`;
+
   // ── DS Dashboard tables ──────────────────────────────────────────────
 
   await sql`

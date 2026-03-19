@@ -10,6 +10,7 @@ interface CalendarEntry {
   entryType: string;
   note: string;
   source: string;
+  customer: string;
 }
 
 interface TeamMember {
@@ -32,6 +33,7 @@ interface EntrySpan {
   entryType: string;
   note: string;
   source: string;
+  customer: string;
   startDate: string;
   endDate: string;
   entryIds: string[];
@@ -135,6 +137,7 @@ function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
         entryType: entry.entryType,
         note: entry.note,
         source: entry.source,
+        customer: entry.customer || "",
         startDate: date,
         endDate: dayDates[endIdx],
         entryIds: ids,
@@ -201,6 +204,7 @@ interface ModalState {
   location: string;
   entryType: string;
   note: string;
+  customer: string;
   startDate: string;
   endDate: string;
   editIds?: string[]; // existing entry IDs being edited
@@ -225,6 +229,8 @@ export default function CalendarPage() {
   const [sugLimit, setSugLimit] = useState(5);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sugUserEmail, setSugUserEmail] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<string[]>([]);
+  const [newCustomerInput, setNewCustomerInput] = useState("");
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -232,6 +238,7 @@ export default function CalendarPage() {
       .then((r) => r.json())
       .then((data) => {
         setMembers(data.members || []);
+        setCustomers(data.customers || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -342,6 +349,7 @@ export default function CalendarPage() {
             location: modal.location.trim(),
             entryType: modal.entryType,
             note: modal.note.trim(),
+            customer: modal.customer.trim(),
             forEmail: person.email,
             forName: person.name,
           }),
@@ -460,6 +468,7 @@ export default function CalendarPage() {
       location: suggestion.location,
       entryType: "travel",
       note: "",
+      customer: "",
       startDate: suggestion.startDate,
       endDate: suggestion.endDate,
     });
@@ -515,6 +524,7 @@ export default function CalendarPage() {
             entryType: "travel",
             note: "",
             source: "suggestion",
+            customer: "",
           });
         }
         d.setDate(d.getDate() + 1);
@@ -735,6 +745,7 @@ export default function CalendarPage() {
                                           location: span.location,
                                           entryType: span.entryType,
                                           note: span.note || "",
+                                          customer: span.customer || "",
                                           startDate: span.startDate,
                                           endDate: span.endDate,
                                           editIds: span.source === "suggestion" ? undefined : span.entryIds,
@@ -743,6 +754,9 @@ export default function CalendarPage() {
                                         title={span.note || `${span.location} (${formatDateRange(span.startDate, span.endDate)})`}
                                       >
                                         <span className="block truncate">{span.location}</span>
+                                        {span.customer && (
+                                          <span className="block text-[9px] opacity-50 truncate">{span.customer}</span>
+                                        )}
                                         {span.span > 1 && (
                                           <span className="block text-[9px] opacity-60 mt-0.5">
                                             {formatDateRange(span.startDate, span.endDate)}
@@ -761,6 +775,7 @@ export default function CalendarPage() {
                                                     location: span.location,
                                                     entryType: span.entryType,
                                                     note: "",
+                                                    customer: "",
                                                     startDate: span.startDate,
                                                     endDate: span.endDate,
                                                   });
@@ -808,6 +823,7 @@ export default function CalendarPage() {
                                         location: "",
                                         entryType: "travel",
                                         note: "",
+                                        customer: "",
                                         startDate: dateStr,
                                         endDate: dateStr,
                                       })}
@@ -954,6 +970,49 @@ export default function CalendarPage() {
                       {t.label}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Customer (optional)</label>
+                <div className="flex gap-2">
+                  <select
+                    value={modal.customer}
+                    onChange={(e) => setModal({ ...modal, customer: e.target.value })}
+                    className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
+                  >
+                    <option value="">None</option>
+                    {customers.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={newCustomerInput}
+                      onChange={(e) => setNewCustomerInput(e.target.value)}
+                      placeholder="New..."
+                      className="w-24 bg-white/5 border border-white/10 rounded px-2 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
+                    />
+                    {newCustomerInput.trim() && (
+                      <button
+                        onClick={async () => {
+                          const name = newCustomerInput.trim();
+                          await fetch("/api/team-calendar", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "add_customer", newCustomer: name }),
+                          });
+                          setCustomers((prev) => [...prev, name].sort());
+                          setModal({ ...modal, customer: name });
+                          setNewCustomerInput("");
+                        }}
+                        className="px-2 py-1 text-xs text-white/60 border border-white/10 rounded hover:border-white/30 transition-colors"
+                      >
+                        Add
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -46,10 +46,13 @@ export async function GET(request: NextRequest) {
       entryType: e.entry_type,
       note: e.note,
       source: e.source,
+      customer: e.customer || "",
     });
   }
 
-  return NextResponse.json({ members: Object.values(memberMap) });
+  const customers = await sql`SELECT name FROM team_calendar_customers ORDER BY name`;
+
+  return NextResponse.json({ members: Object.values(memberMap), customers: customers.map((c: any) => c.name) });
 }
 
 export async function POST(request: NextRequest) {
@@ -61,7 +64,13 @@ export async function POST(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { date, location, entryType, note, forEmail, forName, action, order } = await request.json();
+  const { date, location, entryType, note, forEmail, forName, action, order, customer, newCustomer } = await request.json();
+
+  // Action: add a new customer tag
+  if (action === "add_customer" && newCustomer) {
+    await sql`INSERT INTO team_calendar_customers (name) VALUES (${newCustomer.trim()}) ON CONFLICT DO NOTHING`;
+    return NextResponse.json({ ok: true });
+  }
 
   // Action: reorder members
   if (action === "reorder" && Array.isArray(order)) {
@@ -104,8 +113,8 @@ export async function POST(request: NextRequest) {
 
   const id = `tce-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await sql`
-    INSERT INTO team_calendar_entries (id, user_email, user_name, date, location, entry_type, note, source)
-    VALUES (${id}, ${targetEmail}, ${targetName}, ${date}, ${location}, ${entryType || "travel"}, ${note || ""}, 'manual')
+    INSERT INTO team_calendar_entries (id, user_email, user_name, date, location, entry_type, note, source, customer)
+    VALUES (${id}, ${targetEmail}, ${targetName}, ${date}, ${location}, ${entryType || "travel"}, ${note || ""}, 'manual', ${customer || ""})
   `;
 
   return NextResponse.json({ id });
@@ -120,7 +129,7 @@ export async function PATCH(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { id, date, location, entryType, note, source } = await request.json();
+  const { id, date, location, entryType, note, source, customer } = await request.json();
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
@@ -141,6 +150,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (source !== undefined) {
     await sql`UPDATE team_calendar_entries SET source = ${source} WHERE id = ${id}`;
+  }
+  if (customer !== undefined) {
+    await sql`UPDATE team_calendar_entries SET customer = ${customer} WHERE id = ${id}`;
   }
 
   return NextResponse.json({ ok: true });
