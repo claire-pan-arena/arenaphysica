@@ -360,6 +360,21 @@ export default function CalendarPage() {
       }
     }
 
+    // Create Google Calendar event for the current user's entry
+    if (!modal.editIds) {
+      try {
+        await fetch("/api/team-calendar/gcal-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: modal.location.trim(),
+            startDate: modal.startDate,
+            endDate: modal.endDate,
+          }),
+        });
+      } catch {}
+    }
+
     setModal(null);
     fetchData();
     fetchSuggestions();
