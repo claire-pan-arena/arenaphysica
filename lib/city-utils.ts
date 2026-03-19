@@ -48,6 +48,14 @@ const OFFICE_PATTERNS = [
   /\broom\s*\d/i, /\bfloor\s*\d/i, /\b\d+\w*\s*floor\b/i, /\blobby\b/i, /\bkitchen\b/i, /\bcafeteria\b/i,
 ];
 
+const VENUE_PATTERNS = [
+  /\bhotel\b/i, /\bresort\b/i, /\binn\b/i, /\bsuites?\b/i, /\blodge\b/i, /\bhostel\b/i,
+  /\bkimpton\b/i, /\bhilton\b/i, /\bmarriott\b/i, /\bhyatt\b/i, /\bsheraton\b/i,
+  /\bwestin\b/i, /\bfairmont\b/i, /\britz/i, /\bfour\s*seasons\b/i, /\bw\s+hotel\b/i,
+  /\brestaurant\b/i, /\bcafe\b/i, /\bbar\b/i, /\bgrill\b/i, /\bbistro\b/i,
+  /\bstadium\b/i, /\barena\b(?!\s*(ai|physica))/i, /\bcenter\b/i, /\bcentre\b/i,
+];
+
 const VIRTUAL_PATTERNS = [
   /^https?:\/\//, /zoom\.us/i, /meet\.google/i, /teams\.microsoft/i, /whereby\.com/i,
 ];
@@ -120,6 +128,10 @@ export function extractCityFromSummary(summary: string): string | null {
   return null;
 }
 
+function looksLikeVenue(text: string): boolean {
+  return VENUE_PATTERNS.some((p) => p.test(text));
+}
+
 export function normalizeToCity(location: string): string | null {
   // Check known city aliases with word-boundary matching
   for (const [pattern, city] of CITY_ALIASES) {
@@ -127,5 +139,12 @@ export function normalizeToCity(location: string): string | null {
   }
 
   // Try to extract city from address
-  return extractCityFromAddress(location);
+  const city = extractCityFromAddress(location);
+  if (!city) return null;
+
+  // Reject if the "city" part looks like a venue/hotel name
+  const cityPart = city.split(",")[0].trim();
+  if (looksLikeVenue(cityPart)) return null;
+
+  return city;
 }
