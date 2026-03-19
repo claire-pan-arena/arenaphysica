@@ -106,22 +106,26 @@ export function isSocialEvent(summary: string): boolean {
  * Normalize a raw location string to "City, State" or "City, Country".
  * Returns null if location can't be resolved to a city.
  */
-export function normalizeToCity(location: string, summary?: string): string | null {
+/**
+ * Check if an event summary indicates travel, e.g. "Claire in LA", "Team offsite in Austin".
+ * Returns the city if found, null otherwise.
+ */
+export function extractCityFromSummary(summary: string): string | null {
+  const match = summary.match(/\bin\s+(.+)/i);
+  if (!match) return null;
+  const tail = match[1].trim();
+  for (const [pattern, city] of CITY_ALIASES) {
+    if (pattern.test(tail)) return city;
+  }
+  return null;
+}
+
+export function normalizeToCity(location: string): string | null {
   // Check known city aliases with word-boundary matching
   for (const [pattern, city] of CITY_ALIASES) {
     if (pattern.test(location)) return city;
   }
 
   // Try to extract city from address
-  const fromAddress = extractCityFromAddress(location);
-  if (fromAddress) return fromAddress;
-
-  // Also check event summary for city mentions
-  if (summary) {
-    for (const [pattern, city] of CITY_ALIASES) {
-      if (pattern.test(summary)) return city;
-    }
-  }
-
-  return null;
+  return extractCityFromAddress(location);
 }

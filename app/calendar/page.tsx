@@ -91,10 +91,11 @@ export default function CalendarPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [modal, setModal] = useState<{ date: string } | null>(null);
+  const [modal, setModal] = useState<{ date: string; editId?: string; memberEmail?: string } | null>(null);
   const [modalLocation, setModalLocation] = useState("");
   const [modalType, setModalType] = useState("travel");
   const [modalNote, setModalNote] = useState("");
+  const [dragEntry, setDragEntry] = useState<{ id: string; memberEmail: string } | null>(null);
   const [numWeeks, setNumWeeks] = useState(2);
   const [suggestions, setSuggestions] = useState<TravelSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
@@ -148,20 +149,46 @@ export default function CalendarPage() {
 
   const handleAddEntry = async () => {
     if (!modal || !modalLocation.trim()) return;
-    await fetch("/api/team-calendar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: modal.date,
-        location: modalLocation.trim(),
-        entryType: modalType,
-        note: modalNote.trim(),
-      }),
-    });
+    if (modal.editId) {
+      // Update existing entry
+      await fetch("/api/team-calendar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: modal.editId,
+          date: modal.date,
+          location: modalLocation.trim(),
+          entryType: modalType,
+          note: modalNote.trim(),
+        }),
+      });
+    } else {
+      await fetch("/api/team-calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: modal.date,
+          location: modalLocation.trim(),
+          entryType: modalType,
+          note: modalNote.trim(),
+          forEmail: modal.memberEmail,
+        }),
+      });
+    }
     setModal(null);
     setModalLocation("");
     setModalType("travel");
     setModalNote("");
+    fetchData();
+  };
+
+  const handleDrop = async (entryId: string, newDate: string) => {
+    await fetch("/api/team-calendar", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: entryId, date: newDate }),
+    });
+    setDragEntry(null);
     fetchData();
   };
 
@@ -416,17 +443,33 @@ export default function CalendarPage() {
                                 <td
                                   key={dateStr}
                                   className={`px-0.5 py-1 ${isWeekend ? "bg-white/[0.02]" : ""}`}
+                                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("bg-white/[0.08]"); }}
+                                  onDragLeave={(e) => { e.currentTarget.classList.remove("bg-white/[0.08]"); }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove("bg-white/[0.08]");
+                                    if (dragEntry) handleDrop(dragEntry.id, dateStr);
+                                  }}
                                 >
                                   <div className="flex flex-col gap-0.5">
                                     {dayEntries.map((entry) => (
                                       <div
                                         key={entry.id}
-                                        className={`group relative px-1.5 py-0.5 rounded text-[10px] leading-tight ${getCellStyle(entry.entryType)}`}
+                                        draggable
+                                        onDragStart={() => setDragEntry({ id: entry.id, memberEmail: member.email })}
+                                        onDragEnd={() => setDragEntry(null)}
+                                        onClick={() => {
+                                          setModal({ date: dateStr, editId: entry.id, memberEmail: member.email });
+                                          setModalLocation(entry.location);
+                                          setModalType(entry.entryType);
+                                          setModalNote(entry.note || "");
+                                        }}
+                                        className={`group relative px-1.5 py-0.5 rounded text-[10px] leading-tight cursor-pointer ${getCellStyle(entry.entryType)}`}
                                         title={entry.note || entry.location}
                                       >
                                         <span className="truncate block">{entry.location}</span>
                                         <button
-                                          onClick={() => handleDelete(entry.id)}
+                                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
                                           className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
                                         >
                                           x
@@ -435,7 +478,7 @@ export default function CalendarPage() {
                                     ))}
                                     <button
                                       onClick={() => {
-                                        setModal({ date: dateStr });
+                                        setModal({ date: dateStr, memberEmail: member.email });
                                         setModalLocation("");
                                         setModalType("travel");
                                         setModalNote("");
@@ -527,7 +570,7 @@ export default function CalendarPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-[#1e2530] border border-white/10 rounded-lg p-6 w-[400px]">
             <h3 className="text-sm text-white/80 mb-4">
-              Add entry for {new Date(modal.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+              {modal.editId ? "Edit" : "Add"} entry for {new Date(modal.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
             </h3>
 
             <div className="space-y-3">
@@ -586,7 +629,7 @@ export default function CalendarPage() {
                 disabled={!modalLocation.trim()}
                 className="px-4 py-2 text-xs text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-30"
               >
-                Add
+                {modal.editId ? "Save" : "Add"}
               </button>
             </div>
           </div>

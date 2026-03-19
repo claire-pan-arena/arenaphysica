@@ -103,6 +103,38 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ id });
 }
 
+export async function PATCH(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sql = getDb();
+  await initDb();
+
+  const { id, date, location, entryType, note } = await request.json();
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  // Build update fields
+  const updates: string[] = [];
+  if (date !== undefined) {
+    await sql`UPDATE team_calendar_entries SET date = ${date} WHERE id = ${id}`;
+  }
+  if (location !== undefined) {
+    await sql`UPDATE team_calendar_entries SET location = ${location} WHERE id = ${id}`;
+  }
+  if (entryType !== undefined) {
+    await sql`UPDATE team_calendar_entries SET entry_type = ${entryType} WHERE id = ${id}`;
+  }
+  if (note !== undefined) {
+    await sql`UPDATE team_calendar_entries SET note = ${note} WHERE id = ${id}`;
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) {
@@ -111,8 +143,8 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
   const sql = getDb();
-  // Any team member can delete any manual entry (team calendar is collaborative)
-  await sql`DELETE FROM team_calendar_entries WHERE id = ${id} AND source = 'manual'`;
+  // Any team member can delete any entry (team calendar is collaborative)
+  await sql`DELETE FROM team_calendar_entries WHERE id = ${id}`;
 
   return NextResponse.json({ ok: true });
 }

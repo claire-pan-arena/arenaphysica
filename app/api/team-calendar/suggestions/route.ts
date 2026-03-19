@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
-import { isOfficeOrVirtual, isSocialEvent, normalizeToCity } from "@/lib/city-utils";
+import { isOfficeOrVirtual, isSocialEvent, normalizeToCity, extractCityFromSummary } from "@/lib/city-utils";
 import { NextResponse } from "next/server";
 
 interface CalendarEvent {
@@ -80,7 +80,7 @@ export async function GET() {
     if (isSocialEvent(summary)) continue;
 
     // Resolve to a city
-    const city = normalizeToCity(location, summary);
+    const city = normalizeToCity(location) || extractCityFromSummary(summary);
     if (!city) continue;
 
     // Skip if it's the user's home base

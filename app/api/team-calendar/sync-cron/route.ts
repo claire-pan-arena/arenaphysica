@@ -1,25 +1,22 @@
-import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
 import { syncMemberCalendar } from "@/lib/calendar-sync";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.email) {
+export async function GET(request: NextRequest) {
+  // Verify this is called by Vercel Cron
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const sql = getDb();
   await initDb();
 
-  const { weekStart, weeks } = await request.json();
-  if (!weekStart) {
-    return NextResponse.json({ error: "weekStart required" }, { status: 400 });
-  }
-
-  const start = new Date(weekStart);
-  const end = new Date(start);
-  end.setDate(end.getDate() + (weeks || 2) * 7);
+  // Sync 4 weeks from today
+  const now = new Date();
+  const weekStart = now.toISOString().split("T")[0];
+  const end = new Date(now);
+  end.setDate(end.getDate() + 28);
 
   const members = await sql`SELECT email, name, refresh_token FROM team_members`;
 
@@ -35,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   for (const member of members) {
     const homeBase = homeBaseMap[member.email] || "nyc";
-    const ok = await syncMemberCalendar(sql, member as any, homeBase, start, end, weekStart);
+    const ok = await syncMemberCalendar(sql, member as any, homeBase, now, end, weekStart);
     if (ok) synced++;
     else failed++;
   }
