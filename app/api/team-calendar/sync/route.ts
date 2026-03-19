@@ -103,11 +103,11 @@ export async function POST(request: NextRequest) {
         const location = event.location || "";
 
         // Skip virtual, office, and social events
-        if (!location || isOfficeOrVirtual(location, summary)) continue;
+        if (location && isOfficeOrVirtual(location, summary)) continue;
         if (isSocialEvent(summary)) continue;
 
         // Resolve to city name
-        const city = normalizeToCity(location);
+        const city = normalizeToCity(location, summary);
         if (!city) continue;
 
         // Skip home base

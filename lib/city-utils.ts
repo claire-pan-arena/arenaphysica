@@ -22,6 +22,7 @@ const CITY_ALIASES: [RegExp, string][] = [
   [/\bjfk\b/i, "New York, New York"],
   [/\birvine\b/i, "Irvine, California"],
   [/\bcosta\s*mesa\b/i, "Costa Mesa, California"],
+  [/\banduril\b/i, "Costa Mesa, California"],
   [/\bhalf\s*moon\s*bay\b/i, "Half Moon Bay, California"],
   [/\bchicago\b/i, "Chicago, Illinois"],
   [/\bseattle\b/i, "Seattle, Washington"],
@@ -44,7 +45,7 @@ const OFFICE_PATTERNS = [
   /arena\s*(hq|physica|ai)/i,
   /\bwest\s*wing\b/i, /\beast\s*wing\b/i,
   /\btetris\b/i, /\bconf(erence)?\s*room\b/i, /\bmeeting\s*room\b/i,
-  /\broom\s*\d/i, /\bfloor\s*\d/i, /\blobby\b/i, /\bkitchen\b/i, /\bcafeteria\b/i,
+  /\broom\s*\d/i, /\bfloor\s*\d/i, /\b\d+\w*\s*floor\b/i, /\blobby\b/i, /\bkitchen\b/i, /\bcafeteria\b/i,
 ];
 
 const VIRTUAL_PATTERNS = [
@@ -105,12 +106,22 @@ export function isSocialEvent(summary: string): boolean {
  * Normalize a raw location string to "City, State" or "City, Country".
  * Returns null if location can't be resolved to a city.
  */
-export function normalizeToCity(location: string): string | null {
+export function normalizeToCity(location: string, summary?: string): string | null {
   // Check known city aliases with word-boundary matching
   for (const [pattern, city] of CITY_ALIASES) {
     if (pattern.test(location)) return city;
   }
 
   // Try to extract city from address
-  return extractCityFromAddress(location);
+  const fromAddress = extractCityFromAddress(location);
+  if (fromAddress) return fromAddress;
+
+  // Also check event summary for city mentions
+  if (summary) {
+    for (const [pattern, city] of CITY_ALIASES) {
+      if (pattern.test(summary)) return city;
+    }
+  }
+
+  return null;
 }

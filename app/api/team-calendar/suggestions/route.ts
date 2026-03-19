@@ -76,11 +76,11 @@ export async function GET() {
     const location = event.location || "";
 
     // Skip virtual, office, and social events
-    if (!location || isOfficeOrVirtual(location, summary)) continue;
+    if (location && isOfficeOrVirtual(location, summary)) continue;
     if (isSocialEvent(summary)) continue;
 
     // Resolve to a city
-    const city = normalizeToCity(location);
+    const city = normalizeToCity(location, summary);
     if (!city) continue;
 
     // Skip if it's the user's home base
