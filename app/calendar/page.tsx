@@ -149,24 +149,14 @@ function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
 
 const NICKNAMES: Record<string, string> = { michael: "Mike" };
 
-function resolveFirstName(fullName: string): string {
-  const first = fullName.split(" ")[0].toLowerCase();
-  return NICKNAMES[first] || fullName.split(" ")[0];
-}
-
-function getDisplayName(fullName: string, allNames: string[]): string {
+function getDisplayName(fullName: string): string {
   const parts = fullName.split(" ").filter(Boolean);
-  const displayFirst = resolveFirstName(fullName);
+  const first = parts[0];
+  const firstLower = first.toLowerCase();
+  const displayFirst = NICKNAMES[firstLower] || first;
 
-  // Check if another member resolves to the same display first name
-  const duplicateFirst = allNames.filter((n) => resolveFirstName(n) === displayFirst).length > 1;
-
-  if (duplicateFirst) {
-    if (parts.length > 1) {
-      return `${displayFirst} ${parts[parts.length - 1]}`;
-    }
-    // No last name available — use email-derived initial or full first name
-    return displayFirst;
+  if (parts.length > 1) {
+    return `${displayFirst} ${parts[parts.length - 1]}`;
   }
   return displayFirst;
 }
@@ -586,6 +576,30 @@ export default function CalendarPage() {
           <div className="flex gap-8">
             {/* Left: Calendar grid */}
             <div className="flex-1 min-w-0">
+              {/* Legend */}
+              <div className="flex items-center gap-6 mb-4 text-[10px] text-white/40 uppercase tracking-widest">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
+                  Confirmed
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/25" />
+                  Detected
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-purple-500/15 border border-purple-500/25" />
+                  Sales
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-blue-500/15 border border-blue-500/25" />
+                  Deployment
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
+                  OOO
+                </div>
+              </div>
+
               {/* Week navigation */}
               <div className="flex items-center gap-4 mb-6">
                 <button onClick={today} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
@@ -689,7 +703,7 @@ export default function CalendarPage() {
                                 }}
                               >
                                 <div className="flex items-center gap-1">
-                                  <span className="text-xs text-white/80">{getDisplayName(member.name, members.map((m) => m.name))}</span>
+                                  <span className="text-xs text-white/80">{getDisplayName(member.name)}</span>
                                   <button
                                     onClick={() => handleRemovePerson(member.email)}
                                     className="w-3.5 h-3.5 text-[9px] text-white/20 hover:text-white/50 hidden group-hover/name:inline-flex items-center justify-center"
@@ -813,29 +827,6 @@ export default function CalendarPage() {
                 </div>
               )}
 
-              {/* Legend */}
-              <div className="flex items-center gap-6 mt-6 text-[10px] text-white/40 uppercase tracking-widest">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
-                  Confirmed
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/25" />
-                  Detected
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-purple-500/15 border border-purple-500/25" />
-                  Sales
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-blue-500/15 border border-blue-500/25" />
-                  Deployment
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
-                  OOO
-                </div>
-              </div>
             </div>
 
             {/* Right: Suggestions panel */}
