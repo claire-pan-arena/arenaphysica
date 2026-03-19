@@ -51,32 +51,40 @@ function isOfficeOrVirtual(location: string, summary: string): boolean {
   return false;
 }
 
-// Extract city from a full address like "19800 MacArthur Blvd, Irvine, CA 92612"
+// Extract "City, State" from a full address.
+// "19800 MacArthur Blvd, Irvine, CA 92612" -> "Irvine, California"
+// "Ritz-Carlton, 1 Miramontes Point Rd, Half Moon Bay, CA 94019, USA" -> "Half Moon Bay, California"
+// "123 Main St, Austin, TX" -> "Austin, Texas"
 function extractCity(location: string): string | null {
   const parts = location.split(",").map((s) => s.trim());
+  if (parts.length < 2) return null;
 
-  if (parts.length >= 3) {
-    // "street, city, state zip" or "venue, street, city, state"
-    // Work backwards: last part is state/zip, second-to-last is city
-    const stateZip = parts[parts.length - 1];
-    const city = parts[parts.length - 2];
-    // Clean state: "CA 92612" -> "California"
-    const state = stateZip.replace(/\d{5}(-\d{4})?/, "").trim();
-    const fullState = STATE_MAP[state.toUpperCase()] || state;
-    if (city && fullState) return `${city}, ${fullState}`;
-    if (city) return city;
+  // Strip trailing country
+  if (/^(usa|us|united\s*states)$/i.test(parts[parts.length - 1])) {
+    parts.pop();
+  }
+  if (parts.length < 2) return null;
+
+  // Walk backwards to find a state abbreviation, then grab the city before it
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const cleaned = parts[i].replace(/\d{5}(-\d{4})?/g, "").trim();
+    const fullState = STATE_MAP[cleaned.toUpperCase()];
+    if (!fullState) continue;
+
+    // Found state — look for city in preceding parts
+    for (let j = i - 1; j >= 0; j--) {
+      const candidate = parts[j].trim();
+      // Skip street addresses (start with number) and short fragments
+      if (/^\d/.test(candidate) || candidate.length <= 2) continue;
+      return `${candidate}, ${fullState}`;
+    }
   }
 
+  // No state found — try "City, Country" or just return best guess
   if (parts.length === 2) {
     const [a, b] = parts;
-    // If first part has numbers, it's a street -> second part is city
-    if (/\d/.test(a)) {
-      const state = STATE_MAP[b.replace(/\d{5}(-\d{4})?/, "").trim().toUpperCase()];
-      return state ? `${b.replace(/\d{5}(-\d{4})?/, "").trim()}, ${state}` : b;
-    }
-    // "City, State"
-    const state = STATE_MAP[b.replace(/\d{5}(-\d{4})?/, "").trim().toUpperCase()];
-    return state ? `${a}, ${state}` : `${a}, ${b}`;
+    if (/^\d/.test(a)) return b;
+    return `${a}, ${b}`;
   }
 
   return null;
