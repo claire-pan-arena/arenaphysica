@@ -600,7 +600,7 @@ export default function CalendarPage() {
                     <colgroup>
                       <col className="w-[100px]" />
                       {days.map((day) => (
-                        <col key={formatDate(day)} className="w-[80px]" />
+                        <col key={formatDate(day)} className="w-[110px]" />
                       ))}
                     </colgroup>
                     <thead>
