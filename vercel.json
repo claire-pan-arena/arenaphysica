@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/team-calendar/sync-cron",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
