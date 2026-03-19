@@ -363,7 +363,7 @@ export default function CalendarPage() {
     // Create Google Calendar event for the current user's entry
     if (!modal.editIds) {
       try {
-        await fetch("/api/team-calendar/gcal-event", {
+        const gcalRes = await fetch("/api/team-calendar/gcal-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -372,7 +372,14 @@ export default function CalendarPage() {
             endDate: modal.endDate,
           }),
         });
-      } catch {}
+        if (!gcalRes.ok) {
+          const err = await gcalRes.json().catch(() => ({}));
+          console.error("[gcal-event] Failed:", err);
+          alert(`Google Calendar event failed: ${err.error || "Unknown error"}. Try signing out and back in.`);
+        }
+      } catch (err) {
+        console.error("[gcal-event] Exception:", err);
+      }
     }
 
     setModal(null);
