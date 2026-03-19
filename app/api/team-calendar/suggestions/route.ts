@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
+import { getDb, initDb } from "@/lib/db";
 import { NextResponse } from "next/server";
-
-const TRAVEL_KEYWORDS = /travel|flight|fly|hotel|visit|onsite|on-site|offsite|off-site|trip|airport/i;
 
 interface CalendarEvent {
   id: string;
@@ -19,52 +18,128 @@ interface TravelSuggestion {
   events: { title: string; date: string }[];
 }
 
-function extractCity(location: string): string {
-  // Strip street addresses, keep city-level info
-  // Common patterns: "123 Main St, Irvine, CA" -> "Irvine, CA"
-  const parts = location.split(",").map((s) => s.trim());
-  if (parts.length >= 3) {
-    // Likely "street, city, state" — return city + state
-    return parts.slice(1).join(", ");
-  }
-  if (parts.length === 2) {
-    // Could be "city, state" or "street, city"
-    // If first part has numbers, it's probably a street
-    if (/\d/.test(parts[0])) return parts[1];
-    return location;
-  }
-  return location;
+// Patterns that indicate an office/conference room, not travel
+const OFFICE_PATTERNS = [
+  /arena\s*(hq|physica|ai)/i,
+  /\bwest\s*wing\b/i,
+  /\beast\s*wing\b/i,
+  /\btetris\b/i,
+  /\bconf(erence)?\s*room\b/i,
+  /\bmeeting\s*room\b/i,
+  /\broom\s*\d/i,
+  /\bfloor\s*\d/i,
+  /\blobby\b/i,
+  /\bkitchen\b/i,
+  /\bcafeteria\b/i,
+];
+
+// Virtual meeting patterns
+const VIRTUAL_PATTERNS = [
+  /^https?:\/\//,
+  /zoom\.us/i,
+  /meet\.google/i,
+  /teams\.microsoft/i,
+  /whereby\.com/i,
+];
+
+function isOfficeOrVirtual(location: string, summary: string): boolean {
+  const loc = location || "";
+  // Virtual
+  if (VIRTUAL_PATTERNS.some((p) => p.test(loc))) return true;
+  // Office room
+  if (OFFICE_PATTERNS.some((p) => p.test(loc) || p.test(summary))) return true;
+  return false;
 }
 
-function normalizeLocation(loc: string): string {
-  const lower = loc.toLowerCase().trim();
-  // Map common variations to canonical names
-  const cityMap: Record<string, string> = {
-    "los angeles": "Los Angeles",
-    "la": "Los Angeles",
-    "lax": "Los Angeles",
-    "san francisco": "San Francisco",
-    "sf": "San Francisco",
-    "sfo": "San Francisco",
-    "new york": "New York",
-    "nyc": "New York",
-    "jfk": "New York",
-    "irvine": "Irvine, CA",
-    "chicago": "Chicago",
-    "ord": "Chicago",
-    "seattle": "Seattle",
-    "sea": "Seattle",
-    "austin": "Austin",
-    "boston": "Boston",
-    "washington": "Washington, DC",
-    "dc": "Washington, DC",
-  };
+// Extract city from a full address like "19800 MacArthur Blvd, Irvine, CA 92612"
+function extractCity(location: string): string | null {
+  const parts = location.split(",").map((s) => s.trim());
 
-  for (const [key, val] of Object.entries(cityMap)) {
-    if (lower.includes(key)) return val;
+  if (parts.length >= 3) {
+    // "street, city, state zip" or "venue, street, city, state"
+    // Work backwards: last part is state/zip, second-to-last is city
+    const stateZip = parts[parts.length - 1];
+    const city = parts[parts.length - 2];
+    // Clean state: "CA 92612" -> "California"
+    const state = stateZip.replace(/\d{5}(-\d{4})?/, "").trim();
+    const fullState = STATE_MAP[state.toUpperCase()] || state;
+    if (city && fullState) return `${city}, ${fullState}`;
+    if (city) return city;
   }
 
-  return extractCity(loc);
+  if (parts.length === 2) {
+    const [a, b] = parts;
+    // If first part has numbers, it's a street -> second part is city
+    if (/\d/.test(a)) {
+      const state = STATE_MAP[b.replace(/\d{5}(-\d{4})?/, "").trim().toUpperCase()];
+      return state ? `${b.replace(/\d{5}(-\d{4})?/, "").trim()}, ${state}` : b;
+    }
+    // "City, State"
+    const state = STATE_MAP[b.replace(/\d{5}(-\d{4})?/, "").trim().toUpperCase()];
+    return state ? `${a}, ${state}` : `${a}, ${b}`;
+  }
+
+  return null;
+}
+
+const STATE_MAP: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "Washington, DC",
+};
+
+// Known city aliases
+const CITY_ALIASES: Record<string, string> = {
+  "la": "Los Angeles, California",
+  "lax": "Los Angeles, California",
+  "los angeles": "Los Angeles, California",
+  "sf": "San Francisco, California",
+  "sfo": "San Francisco, California",
+  "san francisco": "San Francisco, California",
+  "nyc": "New York, New York",
+  "new york": "New York, New York",
+  "jfk": "New York, New York",
+  "irvine": "Irvine, California",
+  "costa mesa": "Costa Mesa, California",
+  "chicago": "Chicago, Illinois",
+  "seattle": "Seattle, Washington",
+  "austin": "Austin, Texas",
+  "boston": "Boston, Massachusetts",
+  "dc": "Washington, DC",
+  "washington": "Washington, DC",
+  "miami": "Miami, Florida",
+  "denver": "Denver, Colorado",
+  "atlanta": "Atlanta, Georgia",
+  "dallas": "Dallas, Texas",
+  "houston": "Houston, Texas",
+  "phoenix": "Phoenix, Arizona",
+  "portland": "Portland, Oregon",
+  "san diego": "San Diego, California",
+  "san jose": "San Jose, California",
+  "detroit": "Detroit, Michigan",
+};
+
+function normalizeToCity(location: string): string | null {
+  const lower = location.toLowerCase().trim();
+
+  // Check known aliases first
+  for (const [alias, city] of Object.entries(CITY_ALIASES)) {
+    if (lower.includes(alias)) return city;
+  }
+
+  // Try to extract city from address
+  const extracted = extractCity(location);
+  if (extracted) return extracted;
+
+  return null;
 }
 
 export async function GET() {
@@ -77,6 +152,12 @@ export async function GET() {
   if (!accessToken) {
     return NextResponse.json({ suggestions: [] });
   }
+
+  // Get user's home base to exclude it
+  const sql = getDb();
+  await initDb();
+  const prefRows = await sql`SELECT home_base FROM travel_preferences WHERE user_email = ${session.user.email}`;
+  const homeBase = (prefRows[0]?.home_base || "NYC").toLowerCase();
 
   // Fetch 90 days of calendar events
   const now = new Date();
@@ -105,25 +186,25 @@ export async function GET() {
     return NextResponse.json({ suggestions: [] });
   }
 
-  // Find events that suggest travel
-  const travelEvents: { event: CalendarEvent; location: string; date: string; endDate: string }[] = [];
+  // Find events that suggest travel to a different city
+  const travelEvents: { event: CalendarEvent; city: string; date: string; endDate: string }[] = [];
 
   for (const event of events) {
     const summary = event.summary || "";
     const location = event.location || "";
 
-    let travelLocation = "";
+    // Skip virtual and office events
+    if (!location || isOfficeOrVirtual(location, summary)) continue;
 
-    // Has a physical location (not a URL like Zoom/Meet)
-    if (location && !location.match(/^https?:\/\//)) {
-      travelLocation = normalizeLocation(location);
-    }
-    // Title contains travel keywords
-    else if (TRAVEL_KEYWORDS.test(summary)) {
-      travelLocation = summary;
-    }
+    // Resolve to a city
+    const city = normalizeToCity(location);
+    if (!city) continue;
 
-    if (!travelLocation) continue;
+    // Skip if it's the user's home base
+    const cityLower = city.toLowerCase();
+    if (cityLower.includes(homeBase) || homeBase.includes(cityLower.split(",")[0].toLowerCase())) {
+      continue;
+    }
 
     const startStr = event.start?.dateTime
       ? event.start.dateTime.split("T")[0]
@@ -135,32 +216,30 @@ export async function GET() {
     if (startStr) {
       travelEvents.push({
         event,
-        location: travelLocation,
+        city,
         date: startStr,
         endDate: endStr || startStr,
       });
     }
   }
 
-  // Group by normalized location and merge overlapping/adjacent dates
-  const locationGroups: Record<string, typeof travelEvents> = {};
+  // Group by city and merge overlapping/adjacent dates
+  const cityGroups: Record<string, typeof travelEvents> = {};
   for (const te of travelEvents) {
-    const key = te.location;
-    if (!locationGroups[key]) locationGroups[key] = [];
-    locationGroups[key].push(te);
+    if (!cityGroups[te.city]) cityGroups[te.city] = [];
+    cityGroups[te.city].push(te);
   }
 
   const suggestions: TravelSuggestion[] = [];
 
-  for (const [location, events] of Object.entries(locationGroups)) {
-    // Sort by date
-    events.sort((a, b) => a.date.localeCompare(b.date));
+  for (const [city, cityEvents] of Object.entries(cityGroups)) {
+    cityEvents.sort((a, b) => a.date.localeCompare(b.date));
 
     // Merge events within 2 days of each other into a single trip
     const trips: { start: string; end: string; events: { title: string; date: string }[] }[] = [];
     let currentTrip: (typeof trips)[0] | null = null;
 
-    for (const ev of events) {
+    for (const ev of cityEvents) {
       if (!currentTrip) {
         currentTrip = {
           start: ev.date,
@@ -173,7 +252,6 @@ export async function GET() {
         const gap = (thisStart.getTime() - lastEnd.getTime()) / (1000 * 60 * 60 * 24);
 
         if (gap <= 2) {
-          // Merge
           if (ev.endDate > currentTrip.end) currentTrip.end = ev.endDate;
           currentTrip.events.push({ title: ev.event.summary || "Untitled", date: ev.date });
         } else {
@@ -190,8 +268,8 @@ export async function GET() {
 
     for (const trip of trips) {
       suggestions.push({
-        id: `sug-${location}-${trip.start}`,
-        location,
+        id: `sug-${city}-${trip.start}`,
+        location: city,
         startDate: trip.start,
         endDate: trip.end,
         events: trip.events,
@@ -199,7 +277,6 @@ export async function GET() {
     }
   }
 
-  // Sort by start date
   suggestions.sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return NextResponse.json({ suggestions });

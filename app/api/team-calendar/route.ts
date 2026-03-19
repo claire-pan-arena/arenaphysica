@@ -61,15 +61,43 @@ export async function POST(request: NextRequest) {
   const sql = getDb();
   await initDb();
 
-  const { date, location, entryType, note } = await request.json();
+  const { date, location, entryType, note, forEmail, forName, action } = await request.json();
+
+  // Action: add a team member
+  if (action === "add_member") {
+    if (!forEmail || !forName) {
+      return NextResponse.json({ error: "email and name required" }, { status: 400 });
+    }
+    await sql`
+      INSERT INTO team_members (email, name, updated_at)
+      VALUES (${forEmail.toLowerCase().trim()}, ${forName.trim()}, NOW())
+      ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+    `;
+    return NextResponse.json({ ok: true });
+  }
+
+  // Action: remove a team member
+  if (action === "remove_member") {
+    if (!forEmail) {
+      return NextResponse.json({ error: "email required" }, { status: 400 });
+    }
+    await sql`DELETE FROM team_members WHERE email = ${forEmail.toLowerCase().trim()}`;
+    await sql`DELETE FROM team_calendar_entries WHERE user_email = ${forEmail.toLowerCase().trim()}`;
+    return NextResponse.json({ ok: true });
+  }
+
   if (!date || !location) {
     return NextResponse.json({ error: "date and location required" }, { status: 400 });
   }
 
-  const id = `tce-${Date.now()}`;
+  // Allow adding entries for other team members
+  const targetEmail = forEmail ? forEmail.toLowerCase().trim() : session.user.email;
+  const targetName = forName || session.user.name || "Unknown";
+
+  const id = `tce-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   await sql`
     INSERT INTO team_calendar_entries (id, user_email, user_name, date, location, entry_type, note, source)
-    VALUES (${id}, ${session.user.email}, ${session.user.name || "Unknown"}, ${date}, ${location}, ${entryType || "travel"}, ${note || ""}, 'manual')
+    VALUES (${id}, ${targetEmail}, ${targetName}, ${date}, ${location}, ${entryType || "travel"}, ${note || ""}, 'manual')
   `;
 
   return NextResponse.json({ id });
@@ -83,7 +111,8 @@ export async function DELETE(request: NextRequest) {
 
   const { id } = await request.json();
   const sql = getDb();
-  await sql`DELETE FROM team_calendar_entries WHERE id = ${id} AND user_email = ${session.user.email}`;
+  // Any team member can delete any manual entry (team calendar is collaborative)
+  await sql`DELETE FROM team_calendar_entries WHERE id = ${id} AND source = 'manual'`;
 
   return NextResponse.json({ ok: true });
 }
