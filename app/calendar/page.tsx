@@ -231,6 +231,7 @@ export default function CalendarPage() {
   const [sugUserEmail, setSugUserEmail] = useState<string | null>(null);
   const [customers, setCustomers] = useState<string[]>([]);
   const [newCustomerInput, setNewCustomerInput] = useState("");
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -1028,45 +1029,48 @@ export default function CalendarPage() {
               </div>
 
               {!modal.editIds && (
-                <div>
+                <div className="relative">
                   <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Also add for</label>
-                  {modal.additionalMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {modal.additionalMembers.map((p) => (
-                        <span
-                          key={p.email}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-white/10 rounded text-white/70"
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {modal.additionalMembers.map((p) => (
+                      <span
+                        key={p.email}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-white/10 rounded text-white/70"
+                      >
+                        {p.name.split(" ")[0]}
+                        <button
+                          onClick={() => setModal({ ...modal, additionalMembers: modal.additionalMembers.filter((m) => m.email !== p.email) })}
+                          className="text-white/30 hover:text-white/60"
                         >
-                          {p.name.split(" ")[0]}
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      onClick={() => setShowMemberPicker(!showMemberPicker)}
+                      className="px-2 py-1 text-[11px] text-white/30 border border-dashed border-white/15 rounded hover:border-white/30 hover:text-white/50 transition-colors"
+                    >
+                      + Add person
+                    </button>
+                  </div>
+                  {showMemberPicker && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-[#1e2530] border border-white/10 rounded-lg max-h-[200px] overflow-y-auto shadow-xl">
+                      {members
+                        .filter((m) => m.email !== modal.memberEmail && !modal.additionalMembers.some((a) => a.email === m.email))
+                        .map((m) => (
                           <button
-                            onClick={() => setModal({ ...modal, additionalMembers: modal.additionalMembers.filter((m) => m.email !== p.email) })}
-                            className="text-white/30 hover:text-white/60"
+                            key={m.email}
+                            onClick={() => {
+                              setModal({ ...modal, additionalMembers: [...modal.additionalMembers, { email: m.email, name: m.name }] });
+                              setShowMemberPicker(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/[0.08] transition-colors"
                           >
-                            x
+                            {m.name}
                           </button>
-                        </span>
-                      ))}
+                        ))}
                     </div>
                   )}
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const email = e.target.value;
-                      if (!email) return;
-                      const person = members.find((m) => m.email === email);
-                      if (person && !modal.additionalMembers.some((m) => m.email === email)) {
-                        setModal({ ...modal, additionalMembers: [...modal.additionalMembers, { email: person.email, name: person.name }] });
-                      }
-                    }}
-                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white/40 focus:outline-none focus:border-white/30 [color-scheme:dark]"
-                  >
-                    <option value="">Select team member...</option>
-                    {members
-                      .filter((m) => m.email !== modal.memberEmail && !modal.additionalMembers.some((a) => a.email === m.email))
-                      .map((m) => (
-                        <option key={m.email} value={m.email}>{m.name}</option>
-                      ))}
-                  </select>
                 </div>
               )}
             </div>
