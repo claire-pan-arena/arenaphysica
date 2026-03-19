@@ -30,11 +30,12 @@ interface EntrySpan {
   location: string;
   entryType: string;
   note: string;
+  source: string;
   startDate: string;
   endDate: string;
   entryIds: string[];
-  startIdx: number; // column index in the days array
-  span: number; // number of columns to span
+  startIdx: number;
+  span: number;
 }
 
 function getMonday(d: Date): Date {
@@ -129,6 +130,7 @@ function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
         location: entry.location,
         entryType: entry.entryType,
         note: entry.note,
+        source: entry.source,
         startDate: date,
         endDate: dayDates[endIdx],
         entryIds: ids,
@@ -148,15 +150,16 @@ const ENTRY_TYPES = [
   { value: "ooo", label: "OOO" },
 ];
 
-function getCellStyle(entryType: string) {
-  switch (entryType) {
-    case "travel":
-      return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
-    case "ooo":
-      return "bg-red-500/10 border border-red-500/20 text-red-300/60";
-    default:
-      return "bg-white/[0.05] text-white/30";
+function getCellStyle(entryType: string, source: string) {
+  if (entryType === "ooo") {
+    return "bg-red-500/10 border border-red-500/20 text-red-300/60";
   }
+  if (source === "google_calendar") {
+    // Auto-detected / suggested — amber/yellow
+    return "bg-amber-500/15 border border-amber-500/25 text-amber-400/80";
+  }
+  // Confirmed / manual — green
+  return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
 }
 
 interface ModalState {
@@ -185,6 +188,8 @@ export default function CalendarPage() {
   const [dragMemberIdx, setDragMemberIdx] = useState<number | null>(null);
   const [orgPeople, setOrgPeople] = useState<{ email: string; name: string }[]>([]);
   const [addSearch, setAddSearch] = useState("");
+  const [sugLimit, setSugLimit] = useState(5);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -274,6 +279,7 @@ export default function CalendarPage() {
 
     setModal(null);
     fetchData();
+    fetchSuggestions();
   };
 
   const handleDeleteSpan = async (entryIds: string[]) => {
@@ -422,18 +428,38 @@ export default function CalendarPage() {
             <div className="flex-1 min-w-0">
               {/* Week navigation */}
               <div className="flex items-center gap-4 mb-6">
-                <button onClick={prevWeek} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
-                  Prev
-                </button>
                 <button onClick={today} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
                   Today
                 </button>
-                <button onClick={nextWeek} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
-                  Next
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="text-sm text-white/80 hover:text-white transition-colors cursor-pointer underline decoration-white/20 underline-offset-4"
+                  >
+                    {formatWeekRange(startDate)}
+                  </button>
+                  {showDatePicker && (
+                    <div className="absolute top-full mt-2 left-0 z-20 bg-[#1e2530] border border-white/10 rounded-lg p-3">
+                      <input
+                        type="date"
+                        value={weekStart}
+                        onChange={(e) => {
+                          const d = new Date(e.target.value + "T12:00:00");
+                          setWeekStart(formatDate(getMonday(d)));
+                          setShowDatePicker(false);
+                        }}
+                        className="bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </div>
+                <button onClick={prevWeek} className="px-2 py-1 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+                  &larr;
                 </button>
-                <span className="text-sm text-white/80 ml-2">
-                  {formatWeekRange(startDate)}
-                </span>
+                <button onClick={nextWeek} className="px-2 py-1 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+                  &rarr;
+                </button>
               </div>
 
               {/* Calendar grid */}
@@ -545,7 +571,7 @@ export default function CalendarPage() {
                                           endDate: span.endDate,
                                           editIds: span.entryIds,
                                         })}
-                                        className={`group relative px-2 py-1.5 rounded text-[11px] leading-tight cursor-pointer text-center ${getCellStyle(span.entryType)}`}
+                                        className={`group relative px-2 py-1.5 rounded text-[11px] leading-tight cursor-pointer text-center ${getCellStyle(span.entryType, span.source)}`}
                                         title={span.note || `${span.location} (${formatDateRange(span.startDate, span.endDate)})`}
                                       >
                                         <span className="block truncate">{span.location}</span>
@@ -601,7 +627,11 @@ export default function CalendarPage() {
               <div className="flex items-center gap-6 mt-6 text-[10px] text-white/40 uppercase tracking-widest">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
-                  Travel
+                  Confirmed
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/25" />
+                  Detected
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
@@ -623,7 +653,7 @@ export default function CalendarPage() {
                   <p className="text-white/30 text-xs">No upcoming travel detected.</p>
                 ) : (
                   <div className="space-y-3">
-                    {suggestions.map((sug) => (
+                    {suggestions.slice(0, sugLimit).map((sug) => (
                       <div
                         key={sug.id}
                         className="border border-white/10 rounded-lg p-4 bg-white/[0.03]"
@@ -651,6 +681,14 @@ export default function CalendarPage() {
                         </div>
                       </div>
                     ))}
+                    {suggestions.length > sugLimit && (
+                      <button
+                        onClick={() => setSugLimit((prev) => prev + 5)}
+                        className="w-full py-2 text-[10px] tracking-widest uppercase text-white/30 hover:text-white/50 border border-white/10 hover:border-white/20 rounded transition-colors"
+                      >
+                        Show more ({suggestions.length - sugLimit} remaining)
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
