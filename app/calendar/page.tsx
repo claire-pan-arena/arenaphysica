@@ -155,14 +155,18 @@ function resolveFirstName(fullName: string): string {
 }
 
 function getDisplayName(fullName: string, allNames: string[]): string {
-  const parts = fullName.split(" ");
+  const parts = fullName.split(" ").filter(Boolean);
   const displayFirst = resolveFirstName(fullName);
 
   // Check if another member resolves to the same display first name
   const duplicateFirst = allNames.filter((n) => resolveFirstName(n) === displayFirst).length > 1;
 
-  if (duplicateFirst && parts.length > 1) {
-    return `${displayFirst} ${parts[parts.length - 1][0]}.`;
+  if (duplicateFirst) {
+    if (parts.length > 1) {
+      return `${displayFirst} ${parts[parts.length - 1]}`;
+    }
+    // No last name available — use email-derived initial or full first name
+    return displayFirst;
   }
   return displayFirst;
 }
@@ -670,7 +674,7 @@ export default function CalendarPage() {
                                 }}
                               >
                                 <div className="flex items-center gap-1">
-                                  <span className="text-xs text-white/80">{getDisplayName(member.name, membersWithSuggestions.map((m) => m.name))}</span>
+                                  <span className="text-xs text-white/80">{getDisplayName(member.name, members.map((m) => m.name))}</span>
                                   <button
                                     onClick={() => handleRemovePerson(member.email)}
                                     className="w-3.5 h-3.5 text-[9px] text-white/20 hover:text-white/50 hidden group-hover/name:inline-flex items-center justify-center"
