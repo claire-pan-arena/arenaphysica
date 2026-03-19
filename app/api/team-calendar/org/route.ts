@@ -14,7 +14,6 @@ async function getActiveOrgEmails(): Promise<Set<string> | null> {
     const params = new URLSearchParams({
       domain: "arena-ai.com",
       maxResults: "500",
-      query: "isSuspended=false",
     });
     if (pageToken) params.set("pageToken", pageToken);
 
