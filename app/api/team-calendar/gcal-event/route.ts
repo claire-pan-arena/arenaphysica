@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const res = await fetch(
-      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(process.env.TEAM_CALENDAR_ID || "primary")}/events`,
       {
         method: "POST",
         headers: {
