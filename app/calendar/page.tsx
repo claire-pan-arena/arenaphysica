@@ -483,7 +483,7 @@ export default function CalendarPage() {
                 {loadingSuggestions ? (
                   <p className="text-white/30 text-xs">Scanning calendar...</p>
                 ) : suggestions.length === 0 ? (
-                  <p className="text-white/30 text-xs">No travel detected in the next 90 days.</p>
+                  <p className="text-white/30 text-xs">No upcoming travel detected.</p>
                 ) : (
                   <div className="space-y-3">
                     {suggestions.map((sug) => (
@@ -491,27 +491,11 @@ export default function CalendarPage() {
                         key={sug.id}
                         className="border border-white/10 rounded-lg p-4 bg-white/[0.03]"
                       >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div>
-                            <div className="text-sm text-white/90 font-medium">{sug.location}</div>
-                            <div className="text-xs text-white/40 mt-0.5">
-                              {formatDateRange(sug.startDate, sug.endDate)}
-                            </div>
+                        <div className="mb-3">
+                          <div className="text-sm text-white/90 font-medium">{sug.location}</div>
+                          <div className="text-xs text-white/40 mt-0.5">
+                            {formatDateRange(sug.startDate, sug.endDate)}
                           </div>
-                        </div>
-
-                        {/* Events that triggered this suggestion */}
-                        <div className="space-y-1 mb-3">
-                          {sug.events.slice(0, 3).map((ev, i) => (
-                            <div key={i} className="text-[11px] text-white/30 truncate">
-                              {ev.title}
-                            </div>
-                          ))}
-                          {sug.events.length > 3 && (
-                            <div className="text-[11px] text-white/20">
-                              +{sug.events.length - 3} more
-                            </div>
-                          )}
                         </div>
 
                         {/* Confirm / Dismiss */}
