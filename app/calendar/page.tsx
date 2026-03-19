@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import NavHeader from "../components/nav-header";
 
 interface CalendarEntry {
@@ -176,7 +176,8 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
-  const [numWeeks, setNumWeeks] = useState(2);
+  const [numWeeks, setNumWeeks] = useState(4);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [suggestions, setSuggestions] = useState<TravelSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -209,6 +210,20 @@ export default function CalendarPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
+
+  // Infinite scroll: load more weeks when near right edge
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const nearEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 200;
+      if (nearEnd) {
+        setNumWeeks((prev) => prev + 4);
+      }
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -316,27 +331,18 @@ export default function CalendarPage() {
     fetchData();
   };
 
-  const handleConfirmSuggestion = async (suggestion: TravelSuggestion) => {
-    setConfirmingId(suggestion.id);
-    const start = new Date(suggestion.startDate + "T12:00:00");
-    const end = new Date(suggestion.endDate + "T12:00:00");
-    const d = new Date(start);
-    while (d <= end) {
-      await fetch("/api/team-calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: formatDate(d),
-          location: suggestion.location,
-          entryType: "travel",
-          note: "",
-        }),
-      });
-      d.setDate(d.getDate() + 1);
-    }
-    setConfirmingId(null);
-    fetchData();
-    fetchSuggestions();
+  const handleConfirmSuggestion = (suggestion: TravelSuggestion) => {
+    // Open edit modal pre-filled with suggestion data so user can adjust
+    setModal({
+      memberEmail: "", // current user — blank means self
+      location: suggestion.location,
+      entryType: "travel",
+      note: "",
+      startDate: suggestion.startDate,
+      endDate: suggestion.endDate,
+    });
+    // Remove from suggestions list
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
   };
 
   const handleDismissSuggestion = (id: string) => {
@@ -427,35 +433,14 @@ export default function CalendarPage() {
                 </button>
                 <span className="text-sm text-white/80 ml-2">
                   {formatWeekRange(startDate)}
-                  {numWeeks > 1 && (() => {
-                    const lastWeekStart = new Date(startDate);
-                    lastWeekStart.setDate(startDate.getDate() + (numWeeks - 1) * 7);
-                    return ` - ${formatWeekRange(lastWeekStart)}`;
-                  })()}
                 </span>
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="text-[10px] text-white/40 uppercase tracking-widest">View</span>
-                  {[1, 2, 4, 8, 12].map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => setNumWeeks(w)}
-                      className={`px-3 py-1.5 text-xs border transition-colors ${
-                        numWeeks === w
-                          ? "border-white/40 text-white bg-white/10"
-                          : "border-white/10 text-white/40 hover:text-white hover:border-white/30"
-                      }`}
-                    >
-                      {w}w
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Calendar grid */}
               {loading ? (
                 <p className="text-white/40 text-sm">Loading...</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" ref={scrollRef}>
                   <table className="w-full border-collapse table-fixed">
                     <colgroup>
                       <col className="w-[100px]" />
