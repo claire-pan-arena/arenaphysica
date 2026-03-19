@@ -23,7 +23,6 @@ interface TravelSuggestion {
   location: string;
   startDate: string;
   endDate: string;
-  events: { title: string; date: string }[];
 }
 
 function getMonday(d: Date): Date {
@@ -219,15 +218,14 @@ export default function CalendarPage() {
           date: formatDate(d),
           location: suggestion.location,
           entryType: "travel",
-          note: suggestion.events.map((e) => e.title).join(", "),
+          note: "",
         }),
       });
       d.setDate(d.getDate() + 1);
     }
-    // Remove from suggestions list
-    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
     setConfirmingId(null);
     fetchData();
+    fetchSuggestions();
   };
 
   const handleDismissSuggestion = (id: string) => {
@@ -373,7 +371,7 @@ export default function CalendarPage() {
                           return (
                             <th
                               key={formatDate(day)}
-                              className={`text-center text-[10px] tracking-widest uppercase px-1 py-2 min-w-[80px] ${
+                              className={`text-center text-[9px] tracking-wider uppercase px-0.5 py-1.5 min-w-[56px] ${
                                 isToday ? "text-white" : isWeekend ? "text-white/20" : "text-white/40"
                               }`}
                             >
@@ -417,16 +415,16 @@ export default function CalendarPage() {
                               return (
                                 <td
                                   key={dateStr}
-                                  className={`px-1 py-1.5 ${isWeekend ? "bg-white/[0.02]" : ""}`}
+                                  className={`px-0.5 py-1 ${isWeekend ? "bg-white/[0.02]" : ""}`}
                                 >
                                   <div className="flex flex-col gap-0.5">
                                     {dayEntries.map((entry) => (
                                       <div
                                         key={entry.id}
-                                        className={`group relative px-2 py-1 rounded text-[11px] leading-tight ${getCellStyle(entry.entryType)}`}
+                                        className={`group relative px-1.5 py-0.5 rounded text-[10px] leading-tight ${getCellStyle(entry.entryType)}`}
                                         title={entry.note || entry.location}
                                       >
-                                        <span className="truncate block">{entry.location}</span>
+                                        <span className="truncate block">{entry.location.split(",")[0]}</span>
                                         <button
                                           onClick={() => handleDelete(entry.id)}
                                           className="absolute -top-1 -right-1 w-4 h-4 bg-white/10 rounded-full text-[10px] text-white/40 hover:text-white hover:bg-white/20 hidden group-hover:flex items-center justify-center"
@@ -442,8 +440,8 @@ export default function CalendarPage() {
                                         setModalType("travel");
                                         setModalNote("");
                                       }}
-                                      className={`px-2 py-1 rounded text-[10px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors ${
-                                        dayEntries.length === 0 ? "min-h-[28px]" : ""
+                                      className={`px-1 py-0.5 rounded text-[9px] text-white/10 hover:text-white/30 hover:bg-white/[0.05] transition-colors ${
+                                        dayEntries.length === 0 ? "min-h-[22px]" : ""
                                       }`}
                                     >
                                       +

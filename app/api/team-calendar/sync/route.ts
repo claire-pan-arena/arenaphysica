@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
+import { isOfficeOrVirtual, isSocialEvent, normalizeToCity } from "@/lib/city-utils";
 import { NextRequest, NextResponse } from "next/server";
 
 async function getAccessTokenForUser(refreshToken: string): Promise<string | null> {
@@ -22,35 +23,6 @@ async function getAccessTokenForUser(refreshToken: string): Promise<string | nul
   }
 }
 
-const TRAVEL_KEYWORDS = /travel|flight|fly|hotel|visit|onsite|on-site|offsite|off-site|trip|airport/i;
-
-function isLikelyTravel(event: any): { isTravelEvent: boolean; location: string } {
-  const summary = event.summary || "";
-  const location = event.location || "";
-
-  // Has a physical location set
-  if (location && !location.match(/^https?:\/\//)) {
-    return { isTravelEvent: true, location };
-  }
-
-  // Title contains travel keywords
-  if (TRAVEL_KEYWORDS.test(summary)) {
-    return { isTravelEvent: true, location: location || summary };
-  }
-
-  // Multi-day all-day event (likely OOO or travel)
-  if (event.start?.date && event.end?.date) {
-    const start = new Date(event.start.date);
-    const end = new Date(event.end.date);
-    const days = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    if (days >= 2) {
-      return { isTravelEvent: true, location: location || "OOO" };
-    }
-  }
-
-  return { isTravelEvent: false, location: "" };
-}
-
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) {
@@ -71,6 +43,13 @@ export async function POST(request: NextRequest) {
 
   const members = await sql`SELECT email, name, refresh_token FROM team_members WHERE refresh_token IS NOT NULL`;
 
+  // Get each member's home base
+  const prefs = await sql`SELECT user_email, home_base FROM travel_preferences`;
+  const homeBaseMap: Record<string, string> = {};
+  for (const p of prefs) {
+    homeBaseMap[p.user_email] = (p.home_base || "NYC").toLowerCase();
+  }
+
   let synced = 0;
   let failed = 0;
 
@@ -81,13 +60,15 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
+    const homeBase = homeBaseMap[member.email] || "nyc";
+
     try {
       const params = new URLSearchParams({
         timeMin: start.toISOString(),
         timeMax: end.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
-        maxResults: "100",
+        maxResults: "200",
       });
 
       const calRes = await fetch(
@@ -113,8 +94,22 @@ export async function POST(request: NextRequest) {
       `;
 
       for (const event of events) {
-        const { isTravelEvent, location } = isLikelyTravel(event);
-        if (!isTravelEvent) continue;
+        const summary = event.summary || "";
+        const location = event.location || "";
+
+        // Skip virtual, office, and social events
+        if (!location || isOfficeOrVirtual(location, summary)) continue;
+        if (isSocialEvent(summary)) continue;
+
+        // Resolve to city name
+        const city = normalizeToCity(location);
+        if (!city) continue;
+
+        // Skip home base
+        const cityLower = city.toLowerCase();
+        if (cityLower.includes(homeBase) || homeBase.includes(cityLower.split(",")[0].toLowerCase())) {
+          continue;
+        }
 
         // Get the date(s) this event covers
         const eventStart = event.start?.dateTime
@@ -130,7 +125,6 @@ export async function POST(request: NextRequest) {
 
         if (!eventStart) continue;
 
-        // For multi-day events, create an entry for each day
         const dates: string[] = [];
         if (eventEnd && event.start?.date) {
           // All-day event — end date is exclusive
@@ -147,7 +141,7 @@ export async function POST(request: NextRequest) {
           const id = `tce-g-${member.email}-${date}-${event.id}`;
           await sql`
             INSERT INTO team_calendar_entries (id, user_email, user_name, date, location, entry_type, note, source, google_event_id)
-            VALUES (${id}, ${member.email}, ${member.name}, ${date}, ${location}, 'travel', ${event.summary || ''}, 'google_calendar', ${event.id})
+            VALUES (${id}, ${member.email}, ${member.name}, ${date}, ${city}, 'travel', ${summary}, 'google_calendar', ${event.id})
             ON CONFLICT (id) DO UPDATE SET
               location = EXCLUDED.location,
               note = EXCLUDED.note

@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getDb, initDb } from "@/lib/db";
+import { isOfficeOrVirtual, isSocialEvent, normalizeToCity } from "@/lib/city-utils";
 import { NextResponse } from "next/server";
 
 interface CalendarEvent {
@@ -15,150 +16,6 @@ interface TravelSuggestion {
   location: string;
   startDate: string;
   endDate: string;
-  events: { title: string; date: string }[];
-}
-
-// Patterns that indicate an office/conference room, not travel
-const OFFICE_PATTERNS = [
-  /arena\s*(hq|physica|ai)/i,
-  /\bwest\s*wing\b/i,
-  /\beast\s*wing\b/i,
-  /\btetris\b/i,
-  /\bconf(erence)?\s*room\b/i,
-  /\bmeeting\s*room\b/i,
-  /\broom\s*\d/i,
-  /\bfloor\s*\d/i,
-  /\blobby\b/i,
-  /\bkitchen\b/i,
-  /\bcafeteria\b/i,
-];
-
-// Virtual meeting patterns
-const VIRTUAL_PATTERNS = [
-  /^https?:\/\//,
-  /zoom\.us/i,
-  /meet\.google/i,
-  /teams\.microsoft/i,
-  /whereby\.com/i,
-];
-
-function isOfficeOrVirtual(location: string, summary: string): boolean {
-  const loc = location || "";
-  // Virtual
-  if (VIRTUAL_PATTERNS.some((p) => p.test(loc))) return true;
-  // Office room
-  if (OFFICE_PATTERNS.some((p) => p.test(loc) || p.test(summary))) return true;
-  return false;
-}
-
-// Extract "City, State" from a full address.
-// "19800 MacArthur Blvd, Irvine, CA 92612" -> "Irvine, California"
-// "Ritz-Carlton, 1 Miramontes Point Rd, Half Moon Bay, CA 94019, USA" -> "Half Moon Bay, California"
-// "123 Main St, Austin, TX" -> "Austin, Texas"
-function extractCity(location: string): string | null {
-  const parts = location.split(",").map((s) => s.trim());
-  if (parts.length < 2) return null;
-
-  // Strip trailing country
-  if (/^(usa|us|united\s*states)$/i.test(parts[parts.length - 1])) {
-    parts.pop();
-  }
-  if (parts.length < 2) return null;
-
-  // Walk backwards to find a state abbreviation, then grab the city before it
-  for (let i = parts.length - 1; i >= 1; i--) {
-    const cleaned = parts[i].replace(/\d{5}(-\d{4})?/g, "").trim();
-    const fullState = STATE_MAP[cleaned.toUpperCase()];
-    if (!fullState) continue;
-
-    // Found state — look for city in preceding parts
-    for (let j = i - 1; j >= 0; j--) {
-      const candidate = parts[j].trim();
-      // Skip street addresses (start with number) and short fragments
-      if (/^\d/.test(candidate) || candidate.length <= 2) continue;
-      return `${candidate}, ${fullState}`;
-    }
-  }
-
-  // No state found — try "City, Country" or just return best guess
-  if (parts.length === 2) {
-    const [a, b] = parts;
-    if (/^\d/.test(a)) return b;
-    return `${a}, ${b}`;
-  }
-
-  return null;
-}
-
-const STATE_MAP: Record<string, string> = {
-  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
-  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
-  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
-  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
-  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
-  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
-  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
-  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
-  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
-  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
-  DC: "Washington, DC",
-};
-
-// Known city aliases — use word-boundary matching to avoid false positives
-// (e.g. "la" should not match "Plaza" or "Place")
-const CITY_ALIASES: [RegExp, string][] = [
-  [/\blos\s*angeles\b/i, "Los Angeles, California"],
-  [/\blax\b/i, "Los Angeles, California"],
-  [/\bsan\s*francisco\b/i, "San Francisco, California"],
-  [/\bsfo\b/i, "San Francisco, California"],
-  [/\bnew\s*york\b/i, "New York, New York"],
-  [/\bnyc\b/i, "New York, New York"],
-  [/\bjfk\b/i, "New York, New York"],
-  [/\birvine\b/i, "Irvine, California"],
-  [/\bcosta\s*mesa\b/i, "Costa Mesa, California"],
-  [/\bchicago\b/i, "Chicago, Illinois"],
-  [/\bseattle\b/i, "Seattle, Washington"],
-  [/\baustin\b/i, "Austin, Texas"],
-  [/\bboston\b/i, "Boston, Massachusetts"],
-  [/\bwashington\b/i, "Washington, DC"],
-  [/\bmiami\b/i, "Miami, Florida"],
-  [/\bdenver\b/i, "Denver, Colorado"],
-  [/\batlanta\b/i, "Atlanta, Georgia"],
-  [/\bdallas\b/i, "Dallas, Texas"],
-  [/\bhouston\b/i, "Houston, Texas"],
-  [/\bphoenix\b/i, "Phoenix, Arizona"],
-  [/\bportland\b/i, "Portland, Oregon"],
-  [/\bsan\s*diego\b/i, "San Diego, California"],
-  [/\bsan\s*jose\b/i, "San Jose, California"],
-  [/\bdetroit\b/i, "Detroit, Michigan"],
-];
-
-// Events that are social/internal, not travel
-const SOCIAL_PATTERNS = [
-  /happy\s*hour/i,
-  /team\s*lunch/i,
-  /team\s*dinner/i,
-  /team\s*outing/i,
-  /birthday/i,
-  /celebration/i,
-  /party/i,
-  /drinks/i,
-  /karaoke/i,
-  /bowling/i,
-  /game\s*night/i,
-];
-
-function normalizeToCity(location: string): string | null {
-  // Check known city aliases with word-boundary matching
-  for (const [pattern, city] of CITY_ALIASES) {
-    if (pattern.test(location)) return city;
-  }
-
-  // Try to extract city from address
-  const extracted = extractCity(location);
-  if (extracted) return extracted;
-
-  return null;
 }
 
 export async function GET() {
@@ -177,6 +34,12 @@ export async function GET() {
   await initDb();
   const prefRows = await sql`SELECT home_base FROM travel_preferences WHERE user_email = ${session.user.email}`;
   const homeBase = (prefRows[0]?.home_base || "NYC").toLowerCase();
+
+  // Also get existing confirmed entries so we don't re-suggest them
+  const existingEntries = await sql`
+    SELECT date, location FROM team_calendar_entries WHERE user_email = ${session.user.email}
+  `;
+  const confirmedSet = new Set(existingEntries.map((e: any) => `${e.date}|${e.location}`));
 
   // Fetch up to 1 year of calendar events
   const now = new Date();
@@ -206,7 +69,7 @@ export async function GET() {
   }
 
   // Find events that suggest travel to a different city
-  const travelEvents: { event: CalendarEvent; city: string; date: string; endDate: string }[] = [];
+  const travelEvents: { city: string; date: string; endDate: string }[] = [];
 
   for (const event of events) {
     const summary = event.summary || "";
@@ -214,7 +77,7 @@ export async function GET() {
 
     // Skip virtual, office, and social events
     if (!location || isOfficeOrVirtual(location, summary)) continue;
-    if (SOCIAL_PATTERNS.some((p) => p.test(summary))) continue;
+    if (isSocialEvent(summary)) continue;
 
     // Resolve to a city
     const city = normalizeToCity(location);
@@ -234,12 +97,7 @@ export async function GET() {
       : event.end?.date || "";
 
     if (startStr) {
-      travelEvents.push({
-        event,
-        city,
-        date: startStr,
-        endDate: endStr || startStr,
-      });
+      travelEvents.push({ city, date: startStr, endDate: endStr || startStr });
     }
   }
 
@@ -256,16 +114,12 @@ export async function GET() {
     cityEvents.sort((a, b) => a.date.localeCompare(b.date));
 
     // Merge events within 2 days of each other into a single trip
-    const trips: { start: string; end: string; events: { title: string; date: string }[] }[] = [];
-    let currentTrip: (typeof trips)[0] | null = null;
+    const trips: { start: string; end: string }[] = [];
+    let currentTrip: { start: string; end: string } | null = null;
 
     for (const ev of cityEvents) {
       if (!currentTrip) {
-        currentTrip = {
-          start: ev.date,
-          end: ev.endDate,
-          events: [{ title: ev.event.summary || "Untitled", date: ev.date }],
-        };
+        currentTrip = { start: ev.date, end: ev.endDate };
       } else {
         const lastEnd = new Date(currentTrip.end);
         const thisStart = new Date(ev.date);
@@ -273,26 +127,34 @@ export async function GET() {
 
         if (gap <= 2) {
           if (ev.endDate > currentTrip.end) currentTrip.end = ev.endDate;
-          currentTrip.events.push({ title: ev.event.summary || "Untitled", date: ev.date });
         } else {
           trips.push(currentTrip);
-          currentTrip = {
-            start: ev.date,
-            end: ev.endDate,
-            events: [{ title: ev.event.summary || "Untitled", date: ev.date }],
-          };
+          currentTrip = { start: ev.date, end: ev.endDate };
         }
       }
     }
     if (currentTrip) trips.push(currentTrip);
 
     for (const trip of trips) {
+      // Skip if all dates in this trip are already confirmed
+      let allConfirmed = true;
+      const d = new Date(trip.start + "T12:00:00");
+      const endD = new Date(trip.end + "T12:00:00");
+      while (d <= endD) {
+        const dateStr = d.toISOString().split("T")[0];
+        if (!confirmedSet.has(`${dateStr}|${city}`)) {
+          allConfirmed = false;
+          break;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      if (allConfirmed) continue;
+
       suggestions.push({
         id: `sug-${city}-${trip.start}`,
         location: city,
         startDate: trip.start,
         endDate: trip.end,
-        events: trip.events,
       });
     }
   }
