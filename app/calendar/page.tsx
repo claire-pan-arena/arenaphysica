@@ -147,6 +147,28 @@ function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
   return spans;
 }
 
+const NICKNAMES: Record<string, string> = { michael: "Mike" };
+
+function getDisplayName(fullName: string, allNames: string[]): string {
+  const parts = fullName.split(" ");
+  let firstName = parts[0];
+  const firstLower = firstName.toLowerCase();
+
+  // Apply nicknames
+  if (NICKNAMES[firstLower]) firstName = NICKNAMES[firstLower];
+
+  // Check if another member shares the same first name
+  const duplicateFirst = allNames.filter((n) => {
+    const other = n.split(" ")[0].toLowerCase();
+    return other === firstLower || NICKNAMES[other] === firstName;
+  }).length > 1;
+
+  if (duplicateFirst && parts.length > 1) {
+    return `${firstName} ${parts[parts.length - 1][0]}.`;
+  }
+  return firstName;
+}
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ENTRY_TYPES = [
@@ -645,7 +667,7 @@ export default function CalendarPage() {
                                 }}
                               >
                                 <div className="flex items-center gap-1">
-                                  <span className="text-xs text-white/80">{member.name.split(" ")[0]}</span>
+                                  <span className="text-xs text-white/80">{getDisplayName(member.name, membersWithSuggestions.map((m) => m.name))}</span>
                                   <button
                                     onClick={() => handleRemovePerson(member.email)}
                                     className="w-3.5 h-3.5 text-[9px] text-white/20 hover:text-white/50 hidden group-hover/name:inline-flex items-center justify-center"
