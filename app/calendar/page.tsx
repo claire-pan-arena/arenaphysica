@@ -232,6 +232,7 @@ export default function CalendarPage() {
   const [customers, setCustomers] = useState<string[]>([]);
   const [newCustomerInput, setNewCustomerInput] = useState("");
   const [showMemberPicker, setShowMemberPicker] = useState(false);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -986,27 +987,21 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Customer</label>
-                <select
-                  value={modal.customer === "__other__" ? "__other__" : modal.customer}
-                  onChange={(e) => {
-                    if (e.target.value === "__other__") {
-                      setModal({ ...modal, customer: "__other__" });
-                      setNewCustomerInput("");
-                    } else {
-                      setModal({ ...modal, customer: e.target.value });
-                    }
-                  }}
-                  className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
-                >
-                  <option value="">None</option>
-                  {customers.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__other__">Other...</option>
-                </select>
-                {modal.customer === "__other__" && (
+                {modal.customer && modal.customer !== "__other__" ? (
+                  <div className="flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-white/10 rounded text-white/70">
+                      {modal.customer}
+                      <button
+                        onClick={() => setModal({ ...modal, customer: "" })}
+                        className="text-white/30 hover:text-white/60"
+                      >
+                        x
+                      </button>
+                    </span>
+                  </div>
+                ) : modal.customer === "__other__" ? (
                   <input
                     type="text"
                     value={newCustomerInput}
@@ -1022,6 +1017,8 @@ export default function CalendarPage() {
                         setCustomers((prev) => [...prev, name].sort());
                         setModal({ ...modal, customer: name });
                         setNewCustomerInput("");
+                      } else {
+                        setModal({ ...modal, customer: "" });
                       }
                     }}
                     onKeyDown={async (e) => {
@@ -1037,12 +1034,47 @@ export default function CalendarPage() {
                           setModal({ ...modal, customer: name });
                           setNewCustomerInput("");
                         }
+                      } else if (e.key === "Escape") {
+                        setModal({ ...modal, customer: "" });
                       }
                     }}
                     placeholder="Enter customer name..."
-                    className="w-full mt-2 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
                     autoFocus
                   />
+                ) : (
+                  <button
+                    onClick={() => setShowCustomerPicker(!showCustomerPicker)}
+                    className="px-2 py-1 text-[11px] text-white/30 border border-dashed border-white/15 rounded hover:border-white/30 hover:text-white/50 transition-colors"
+                  >
+                    + Select customer
+                  </button>
+                )}
+                {showCustomerPicker && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 bg-[#1e2530] border border-white/10 rounded-lg max-h-[200px] overflow-y-auto shadow-xl">
+                    {customers.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setModal({ ...modal, customer: c });
+                          setShowCustomerPicker(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/[0.08] transition-colors"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setModal({ ...modal, customer: "__other__" });
+                        setNewCustomerInput("");
+                        setShowCustomerPicker(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-white/40 hover:bg-white/[0.08] transition-colors border-t border-white/[0.06]"
+                    >
+                      Other...
+                    </button>
+                  </div>
                 )}
               </div>
 
