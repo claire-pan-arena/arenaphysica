@@ -8,9 +8,9 @@ interface NotionOOOEntry {
   note: string;
 }
 
-export async function fetchNotionOOOEntries(): Promise<NotionOOOEntry[]> {
+export async function fetchNotionOOOEntries(): Promise<{ entries: NotionOOOEntry[]; error?: string }> {
   const token = process.env.NOTION_API_KEY_CAL;
-  if (!token) return [];
+  if (!token) return { entries: [], error: "NOTION_API_KEY_CAL not set" };
 
   const entries: NotionOOOEntry[] = [];
   let hasMore = true;
@@ -47,8 +47,8 @@ export async function fetchNotionOOOEntries(): Promise<NotionOOOEntry[]> {
     );
 
     if (!res.ok) {
-      console.error("Notion OOO query failed:", res.status, await res.text());
-      return entries;
+      const text = await res.text();
+      return { entries, error: `Notion API ${res.status}: ${text.slice(0, 200)}` };
     }
 
     const data = await res.json();
@@ -76,7 +76,7 @@ export async function fetchNotionOOOEntries(): Promise<NotionOOOEntry[]> {
     startCursor = data.next_cursor;
   }
 
-  return entries;
+  return { entries };
 }
 
 function formatDate(d: Date): string {
@@ -84,19 +84,17 @@ function formatDate(d: Date): string {
 }
 
 export async function syncNotionOOO(
-  sql: any,
-  rangeStart?: Date,
-  rangeEnd?: Date
-): Promise<{ synced: number; skipped: number }> {
-  const oooEntries = await fetchNotionOOOEntries();
-  if (oooEntries.length === 0) return { synced: 0, skipped: 0 };
+  sql: any
+): Promise<{ synced: number; skipped: number; total: number; error?: string; names?: string[] }> {
+  const { entries: oooEntries, error } = await fetchNotionOOOEntries();
+  if (error) return { synced: 0, skipped: 0, total: 0, error };
+  if (oooEntries.length === 0) return { synced: 0, skipped: 0, total: 0 };
 
   // Get team members to match by name
   const members = await sql`SELECT email, name FROM team_members`;
   const nameToEmail: Record<string, string> = {};
   const nameToFullName: Record<string, string> = {};
   for (const m of members) {
-    // Match by first name (lowercase) and full name
     const lower = m.name.toLowerCase();
     nameToEmail[lower] = m.email;
     nameToFullName[lower] = m.name;
@@ -109,31 +107,25 @@ export async function syncNotionOOO(
 
   let synced = 0;
   let skipped = 0;
+  const skippedNames: string[] = [];
 
   for (const entry of oooEntries) {
-    // Match name to team member
     const nameLower = entry.name.toLowerCase().trim();
     const email = nameToEmail[nameLower] || nameToEmail[nameLower.split(" ")[0]];
     if (!email) {
       skipped++;
+      if (!skippedNames.includes(entry.name)) skippedNames.push(entry.name);
       continue;
     }
     const fullName = nameToFullName[nameLower] || nameToFullName[nameLower.split(" ")[0]] || entry.name;
 
-    // Create entries for each day in the range
     const d = new Date(entry.startDate + "T12:00:00");
     const end = new Date(entry.endDate + "T12:00:00");
 
     while (d <= end) {
       const dateStr = formatDate(d);
-
-      // Skip dates outside the requested range
-      if (rangeStart && d < rangeStart) { d.setDate(d.getDate() + 1); continue; }
-      if (rangeEnd && d > rangeEnd) break;
-
       const id = `notion-ooo-${email}-${dateStr}`;
 
-      // Upsert: insert or update
       await sql`
         INSERT INTO team_calendar_entries (id, user_email, user_name, date, location, entry_type, note, source)
         VALUES (${id}, ${email}, ${fullName}, ${dateStr}, ${"OOO"}, ${"ooo"}, ${entry.note || ""}, ${"notion_ooo"})
@@ -144,10 +136,9 @@ export async function syncNotionOOO(
           source = EXCLUDED.source
       `;
       synced++;
-
       d.setDate(d.getDate() + 1);
     }
   }
 
-  return { synced, skipped };
+  return { synced, skipped, total: oooEntries.length, names: skippedNames.length > 0 ? skippedNames : undefined };
 }

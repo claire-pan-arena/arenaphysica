@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Also sync Notion OOO entries
-  const ooo = await syncNotionOOO(sql, now, end);
+  const ooo = await syncNotionOOO(sql);
 
   return NextResponse.json({ synced, failed, total: members.length, notionOOO: ooo });
 }

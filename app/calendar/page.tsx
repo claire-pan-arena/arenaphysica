@@ -242,17 +242,28 @@ export default function CalendarPage() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
   const handleSync = async () => {
     setSyncing(true);
+    setSyncResult(null);
     try {
-      await fetch("/api/team-calendar/sync", {
+      const res = await fetch("/api/team-calendar/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ weekStart, weeks: numWeeks }),
       });
+      const data = await res.json();
+      const ooo = data.notionOOO;
+      if (ooo?.error) {
+        setSyncResult(`OOO sync error: ${ooo.error}`);
+      } else if (ooo) {
+        setSyncResult(`Synced ${data.synced} calendars, ${ooo.synced} OOO days from ${ooo.total} Notion entries${ooo.names ? ` (unmatched: ${ooo.names.join(", ")})` : ""}`);
+      }
       fetchData();
     } catch {}
     setSyncing(false);
+    setTimeout(() => setSyncResult(null), 8000);
   };
 
   const handleSaveEntry = async () => {
@@ -486,6 +497,9 @@ export default function CalendarPage() {
               >
                 {syncing ? "Syncing..." : "Sync Calendars"}
               </button>
+              {syncResult && (
+                <span className="text-[10px] text-white/40">{syncResult}</span>
+              )}
             </div>
           </div>
 
