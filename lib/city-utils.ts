@@ -39,6 +39,10 @@ const CITY_ALIASES: [RegExp, string][] = [
   [/\bsan\s*diego\b/i, "San Diego, California"],
   [/\bsan\s*jose\b/i, "San Jose, California"],
   [/\bdetroit\b/i, "Detroit, Michigan"],
+  [/\bhuntington\s*beach\b/i, "Huntington Beach, California"],
+  [/\bnewport\s*beach\b/i, "Newport Beach, California"],
+  [/\borange\s*county\b/i, "Orange County, California"],
+  [/\bkimpton\s*sharebreak\b/i, "Huntington Beach, California"],
 ];
 
 const OFFICE_PATTERNS = [
@@ -88,11 +92,33 @@ function extractCityFromAddress(location: string): string | null {
     }
   }
 
-  // Fallback
-  if (parts.length === 2) {
-    const [a, b] = parts;
-    if (/^\d/.test(a)) return b;
-    return `${a}, ${b}`;
+  // Fallback: if first part is a venue/address, use the remaining parts as city
+  if (parts.length >= 2) {
+    const first = parts[0];
+    const isVenue = VENUE_PATTERNS.some((p) => p.test(first));
+    const isAddress = /^\d/.test(first);
+
+    if (isVenue || isAddress) {
+      // Try remaining parts as "City, State"
+      const rest = parts.slice(1);
+      if (rest.length >= 2) {
+        const maybeState = rest[rest.length - 1].replace(/\d{5}(-\d{4})?/g, "").trim();
+        const fullState = STATE_MAP[maybeState.toUpperCase()];
+        if (fullState) {
+          return `${rest[rest.length - 2].trim()}, ${fullState}`;
+        }
+      }
+      // If just one part left, check aliases on it
+      if (rest.length === 1) {
+        for (const [pattern, city] of CITY_ALIASES) {
+          if (pattern.test(rest[0])) return city;
+        }
+      }
+    }
+
+    if (parts.length === 2 && !isVenue) {
+      return `${parts[0]}, ${parts[1]}`;
+    }
   }
 
   return null;
@@ -128,10 +154,6 @@ export function extractCityFromSummary(summary: string): string | null {
   return null;
 }
 
-function looksLikeVenue(text: string): boolean {
-  return VENUE_PATTERNS.some((p) => p.test(text));
-}
-
 export function normalizeToCity(location: string): string | null {
   // Check known city aliases with word-boundary matching
   for (const [pattern, city] of CITY_ALIASES) {
@@ -142,9 +164,9 @@ export function normalizeToCity(location: string): string | null {
   const city = extractCityFromAddress(location);
   if (!city) return null;
 
-  // Reject if the "city" part looks like a venue/hotel name
+  // Reject if the extracted "city" is still a venue name, not a real city
   const cityPart = city.split(",")[0].trim();
-  if (looksLikeVenue(cityPart)) return null;
+  if (VENUE_PATTERNS.some((p) => p.test(cityPart))) return null;
 
   return city;
 }
