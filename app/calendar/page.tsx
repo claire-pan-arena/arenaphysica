@@ -566,12 +566,6 @@ export default function CalendarPage() {
             </h1>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleOpenAddPerson}
-                className="px-4 py-2 text-[10px] tracking-widest uppercase border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors"
-              >
-                Add Person
-              </button>
-              <button
                 onClick={handleSync}
                 disabled={syncing}
                 className="px-4 py-2 text-[10px] tracking-widest uppercase border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-40"
@@ -587,30 +581,6 @@ export default function CalendarPage() {
           <div className="flex gap-8">
             {/* Left: Calendar grid */}
             <div className="flex-1 min-w-0">
-              {/* Legend */}
-              <div className="flex items-center gap-6 mb-4 text-[10px] text-white/40 uppercase tracking-widest">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
-                  Confirmed
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-amber-500/15 border border-amber-500/25" />
-                  Detected
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-purple-500/15 border border-purple-500/25" />
-                  Sales
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-blue-500/15 border border-blue-500/25" />
-                  Deployment
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded bg-red-500/10 border border-red-500/20" />
-                  OOO
-                </div>
-              </div>
-
               {/* Week navigation */}
               <div className="flex items-center gap-4 mb-6">
                 <button onClick={today} className="px-3 py-1.5 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
@@ -679,6 +649,33 @@ export default function CalendarPage() {
                       </tr>
                     </thead>
                     <tbody>
+                      {/* Legend row */}
+                      <tr className="border-b border-white/[0.06]">
+                        <td colSpan={days.length + 1} className="px-2 py-1.5">
+                          <div className="flex items-center gap-5 text-[9px] text-white/35 uppercase tracking-widest">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded bg-[#a3b18a]/20 border border-[#a3b18a]/30" />
+                              Confirmed
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded bg-amber-500/15 border border-amber-500/25" />
+                              Detected
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded bg-purple-500/15 border border-purple-500/25" />
+                              Sales
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded bg-blue-500/15 border border-blue-500/25" />
+                              Deployment
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded bg-red-500/10 border border-red-500/20" />
+                              OOO
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                       {members.length === 0 ? (
                         <tr>
                           <td colSpan={days.length + 1} className="text-center text-white/30 text-sm py-12">
@@ -839,6 +836,21 @@ export default function CalendarPage() {
                           );
                         })
                       )}
+                      {/* Add person row */}
+                      <tr className="border-t border-white/[0.06]">
+                        <td
+                          colSpan={days.length + 1}
+                          className="px-2 py-1.5 sticky left-0"
+                        >
+                          <button
+                            onClick={handleOpenAddPerson}
+                            className="flex items-center gap-1.5 text-[10px] text-white/25 hover:text-white/50 transition-colors"
+                          >
+                            <span className="text-sm leading-none">+</span>
+                            <span className="uppercase tracking-widest">Add Person</span>
+                          </button>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
