@@ -9,7 +9,7 @@ interface NotionOOOEntry {
 }
 
 export async function fetchNotionOOOEntries(): Promise<NotionOOOEntry[]> {
-  const token = process.env.NOTION_API_KEY;
+  const token = process.env.NOTION_API_KEY_CALENDAR;
   if (!token) return [];
 
   const entries: NotionOOOEntry[] = [];
