@@ -1,5 +1,6 @@
 import { getDb, initDb } from "@/lib/db";
 import { syncMemberCalendar } from "@/lib/calendar-sync";
+import { syncNotionOOO } from "@/lib/notion-ooo-sync";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -37,5 +38,8 @@ export async function GET(request: NextRequest) {
     else failed++;
   }
 
-  return NextResponse.json({ synced, failed, total: members.length });
+  // Also sync Notion OOO entries
+  const ooo = await syncNotionOOO(sql, now, end);
+
+  return NextResponse.json({ synced, failed, total: members.length, notionOOO: ooo });
 }

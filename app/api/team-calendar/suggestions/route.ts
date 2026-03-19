@@ -162,5 +162,5 @@ export async function GET() {
 
   suggestions.sort((a, b) => a.startDate.localeCompare(b.startDate));
 
-  return NextResponse.json({ suggestions });
+  return NextResponse.json({ suggestions, userEmail: session.user.email });
 }

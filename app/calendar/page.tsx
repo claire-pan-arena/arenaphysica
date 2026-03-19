@@ -152,17 +152,22 @@ const ENTRY_TYPES = [
 ];
 
 function getCellStyle(entryType: string, source: string) {
+  const isConfirmed = source === "manual" || source === "notion_ooo";
+  const isDetected = source === "google_calendar" || source === "suggestion";
+
   if (entryType === "ooo") {
+    if (isDetected) return "bg-red-500/10 border border-dashed border-red-500/20 text-red-300/50";
     return "bg-red-500/10 border border-red-500/20 text-red-300/60";
   }
   if (entryType === "deployment") {
+    if (isDetected) return "bg-blue-500/10 border border-dashed border-blue-500/20 text-blue-400/50";
     return "bg-blue-500/15 border border-blue-500/25 text-blue-400/80";
   }
-  if (source === "google_calendar") {
-    // Auto-detected / suggested — amber/yellow
-    return "bg-amber-500/15 border border-amber-500/25 text-amber-400/80";
+  if (isDetected) {
+    // Auto-detected / suggested travel — amber/yellow
+    return "bg-amber-500/15 border border-dashed border-amber-500/25 text-amber-400/80";
   }
-  // Confirmed / manual — green
+  // Confirmed / manual travel — green
   return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
 }
 
@@ -195,6 +200,7 @@ export default function CalendarPage() {
   const [addSearch, setAddSearch] = useState("");
   const [sugLimit, setSugLimit] = useState(5);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [sugUserEmail, setSugUserEmail] = useState<string | null>(null);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -213,6 +219,7 @@ export default function CalendarPage() {
       .then((r) => r.json())
       .then((data) => {
         setSuggestions(data.suggestions || []);
+        setSugUserEmail(data.userEmail || null);
         setLoadingSuggestions(false);
       })
       .catch(() => setLoadingSuggestions(false));
@@ -362,9 +369,12 @@ export default function CalendarPage() {
   };
 
   const handleConfirmSuggestion = (suggestion: TravelSuggestion) => {
+    // Find the current user in the members list
+    const currentMember = sugUserEmail ? members.find((m) => m.email === sugUserEmail) : null;
     // Open edit modal pre-filled with suggestion data so user can adjust
     setModal({
-      memberEmail: "",
+      memberEmail: currentMember?.email || sugUserEmail || "",
+      memberName: currentMember?.name,
       additionalMembers: [],
       location: suggestion.location,
       entryType: "travel",
@@ -402,6 +412,37 @@ export default function CalendarPage() {
   }
   const dayDates = days.map(formatDate);
   const todayStr = formatDate(new Date());
+
+  // Merge suggestions into members as synthetic amber entries for the grid
+  const membersWithSuggestions = members.map((member) => {
+    if (!sugUserEmail || member.email !== sugUserEmail || suggestions.length === 0) return member;
+
+    // Build set of dates+locations already covered by real entries
+    const existingSet = new Set(member.entries.map((e) => `${e.date}|${e.location}`));
+
+    const syntheticEntries: CalendarEntry[] = [];
+    for (const sug of suggestions) {
+      const d = new Date(sug.startDate + "T12:00:00");
+      const end = new Date(sug.endDate + "T12:00:00");
+      while (d <= end) {
+        const dateStr = formatDate(d);
+        if (!existingSet.has(`${dateStr}|${sug.location}`)) {
+          syntheticEntries.push({
+            id: `${sug.id}-${dateStr}`,
+            date: dateStr,
+            location: sug.location,
+            entryType: "travel",
+            note: "",
+            source: "suggestion",
+          });
+        }
+        d.setDate(d.getDate() + 1);
+      }
+    }
+
+    if (syntheticEntries.length === 0) return member;
+    return { ...member, entries: [...member.entries, ...syntheticEntries] };
+  });
 
   return (
     <div className="relative min-h-screen overflow-hidden text-white">
@@ -526,7 +567,7 @@ export default function CalendarPage() {
                           </td>
                         </tr>
                       ) : (
-                        members.map((member, memberIdx) => {
+                        membersWithSuggestions.map((member, memberIdx) => {
                           const spans = buildSpans(member.entries, dayDates);
                           // Build a map: column index -> span (only for the first column of each span)
                           const spanAt = new Map<number, EntrySpan>();
@@ -588,7 +629,7 @@ export default function CalendarPage() {
                                           note: span.note || "",
                                           startDate: span.startDate,
                                           endDate: span.endDate,
-                                          editIds: span.entryIds,
+                                          editIds: span.source === "suggestion" ? undefined : span.entryIds,
                                         })}
                                         className={`group relative px-2 py-1.5 rounded text-[11px] leading-tight cursor-pointer text-center ${getCellStyle(span.entryType, span.source)}`}
                                         title={span.note || `${span.location} (${formatDateRange(span.startDate, span.endDate)})`}
@@ -599,24 +640,47 @@ export default function CalendarPage() {
                                             {formatDateRange(span.startDate, span.endDate)}
                                           </span>
                                         )}
-                                        <div className="hidden group-hover:flex items-center justify-center gap-2 mt-1">
-                                          {span.source === "google_calendar" && (
+                                        {(span.source === "google_calendar" || span.source === "suggestion") && (
+                                          <div className="hidden group-hover:flex absolute bottom-0.5 right-1 gap-1">
                                             <button
-                                              onClick={(e) => { e.stopPropagation(); handleConfirmSpan(span.entryIds); }}
-                                              className="text-[9px] text-[#a3b18a]/70 hover:text-[#a3b18a] transition-colors"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (span.source === "suggestion") {
+                                                  setModal({
+                                                    memberEmail: member.email,
+                                                    memberName: member.name,
+                                                    additionalMembers: [],
+                                                    location: span.location,
+                                                    entryType: span.entryType,
+                                                    note: "",
+                                                    startDate: span.startDate,
+                                                    endDate: span.endDate,
+                                                  });
+                                                } else {
+                                                  handleConfirmSpan(span.entryIds);
+                                                }
+                                              }}
+                                              className="text-[10px] leading-none text-[#a3b18a]/60 hover:text-[#a3b18a] transition-colors"
                                               title="Confirm"
                                             >
-                                              Confirm
+                                              &#10003;
                                             </button>
-                                          )}
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteSpan(span.entryIds); }}
-                                            className="text-[9px] text-white/20 hover:text-red-400/70 transition-colors"
-                                            title="Remove"
-                                          >
-                                            Remove
-                                          </button>
-                                        </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (span.source === "suggestion") {
+                                                  setSuggestions((prev) => prev.filter((s) => !(s.location === span.location && s.startDate === span.startDate)));
+                                                } else {
+                                                  handleDeleteSpan(span.entryIds);
+                                                }
+                                              }}
+                                              className="text-[10px] leading-none text-white/20 hover:text-red-400/70 transition-colors"
+                                              title={span.source === "suggestion" ? "Dismiss" : "Remove"}
+                                            >
+                                              &#10005;
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     </td>
                                   );
