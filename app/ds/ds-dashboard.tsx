@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ListChecks,
   Sparkles,
+  Settings,
   ChevronLeft,
   ChevronDown,
 } from "lucide-react";
@@ -18,9 +19,10 @@ import DeploymentsView from "./views/deployments";
 import PeopleView from "./views/people";
 import MeetingsView from "./views/meetings";
 import BacklogView from "./views/backlog";
+import SettingsView from "./views/settings";
 import CoPilotPanel from "./views/copilot";
 
-type View = "command" | "deployments" | "people" | "meetings" | "backlog";
+type View = "command" | "deployments" | "people" | "meetings" | "backlog" | "settings";
 
 const NAV_ITEMS: { key: View; label: string; icon: React.ReactNode }[] = [
   { key: "command", label: "Command Center", icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -28,6 +30,7 @@ const NAV_ITEMS: { key: View; label: string; icon: React.ReactNode }[] = [
   { key: "people", label: "People", icon: <Users className="w-4 h-4" /> },
   { key: "meetings", label: "Meetings", icon: <CalendarDays className="w-4 h-4" /> },
   { key: "backlog", label: "Backlog & Sprint", icon: <ListChecks className="w-4 h-4" /> },
+  { key: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
 ];
 
 function getInitials(name: string): string {
@@ -46,6 +49,7 @@ function viewTitle(view: View): string {
     case "people": return "People";
     case "meetings": return "Meetings";
     case "backlog": return "Backlog & Sprint";
+    case "settings": return "Settings";
   }
 }
 
@@ -58,11 +62,17 @@ export default function DSDashboard({
 }) {
   const [currentView, setCurrentView] = useState<View>("command");
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotInitialMessage, setCopilotInitialMessage] = useState<string | null>(null);
   const [filterCompany, setFilterCompany] = useState("");
   const [filterGroup, setFilterGroup] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
   const triggerRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const openCopilotWithMessage = useCallback((msg: string) => {
+    setCopilotInitialMessage(msg);
+    setCopilotOpen(true);
+  }, []);
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -212,6 +222,7 @@ export default function DSDashboard({
                 filterCompany={filterCompany}
                 filterGroup={filterGroup}
                 onRefresh={triggerRefresh}
+                onOpenCopilot={openCopilotWithMessage}
               />
             )}
             {currentView === "backlog" && (
@@ -222,11 +233,23 @@ export default function DSDashboard({
                 onRefresh={triggerRefresh}
               />
             )}
+            {currentView === "settings" && (
+              <SettingsView
+                key={refreshKey}
+                onRefresh={triggerRefresh}
+              />
+            )}
           </main>
 
           {/* Co-Pilot panel */}
           {copilotOpen && (
-            <CoPilotPanel onClose={() => setCopilotOpen(false)} />
+            <CoPilotPanel
+              onClose={() => {
+                setCopilotOpen(false);
+                setCopilotInitialMessage(null);
+              }}
+              initialMessage={copilotInitialMessage}
+            />
           )}
         </div>
       </div>

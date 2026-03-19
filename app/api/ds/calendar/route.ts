@@ -216,11 +216,32 @@ export async function GET(request: NextRequest) {
     // Filter to only external meetings (has at least one non-arena attendee)
     const externalEvents = events.filter((e: any) => e.hasExternal);
 
+    // Collect unmapped external attendees (no DS profile match)
+    const unmappedMap: Record<string, { name: string; email: string; domain: string; meetingCount: number }> = {};
+    for (const evt of externalEvents) {
+      for (const att of evt.attendees) {
+        if (att.isExternal && !att.personId) {
+          const key = att.email.toLowerCase();
+          if (!unmappedMap[key]) {
+            unmappedMap[key] = {
+              name: att.name,
+              email: att.email,
+              domain: att.email.split("@")[1] || "",
+              meetingCount: 0,
+            };
+          }
+          unmappedMap[key].meetingCount++;
+        }
+      }
+    }
+    const unmappedPeople = Object.values(unmappedMap).sort((a, b) => b.meetingCount - a.meetingCount);
+
     return NextResponse.json({
       events: externalEvents,
       allEvents: events,
       totalEvents: events.length,
       externalEvents: externalEvents.length,
+      unmappedPeople,
     });
   } catch (e: any) {
     console.error("[ds/calendar] Error:", e.message);

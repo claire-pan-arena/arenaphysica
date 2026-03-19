@@ -290,7 +290,7 @@ function QuestionUI({
 }
 
 /* ─── Main Co-Pilot Panel ─── */
-export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
+export default function CoPilotPanel({ onClose, initialMessage }: { onClose: () => void; initialMessage?: string | null }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -306,11 +306,24 @@ export default function CoPilotPanel({ onClose }: { onClose: () => void }) {
   const [importData, setImportData] = useState<any>(null);
   const [importId, setImportId] = useState<string>("");
   const [savingImport, setSavingImport] = useState(false);
+  const [initialMessageProcessed, setInitialMessageProcessed] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, activeQuestions, importData]);
+
+  // Handle initial message from external trigger (e.g., Meetings "Import Notion" button)
+  useEffect(() => {
+    if (initialMessage && initialMessage !== initialMessageProcessed && !sending) {
+      setInitialMessageProcessed(initialMessage);
+      // Small delay to let panel render first
+      const timer = setTimeout(() => {
+        sendMessage(initialMessage);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [initialMessage]);
 
   const sendMessage = async (text: string, overrideImportStep?: number) => {
     if (!text.trim() || sending) return;
