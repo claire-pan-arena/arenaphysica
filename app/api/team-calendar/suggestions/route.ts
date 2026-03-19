@@ -35,9 +35,9 @@ export async function GET() {
   const prefRows = await sql`SELECT home_base FROM travel_preferences WHERE user_email = ${session.user.email}`;
   const homeBase = (prefRows[0]?.home_base || "NYC").toLowerCase();
 
-  // Also get existing confirmed entries so we don't re-suggest them
+  // Only exclude manually confirmed entries (not auto-synced ones)
   const existingEntries = await sql`
-    SELECT date, location FROM team_calendar_entries WHERE user_email = ${session.user.email}
+    SELECT date, location FROM team_calendar_entries WHERE user_email = ${session.user.email} AND source = 'manual'
   `;
   const confirmedSet = new Set(existingEntries.map((e: any) => `${e.date}|${e.location}`));
 
@@ -113,7 +113,7 @@ export async function GET() {
   for (const [city, cityEvents] of Object.entries(cityGroups)) {
     cityEvents.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Merge events within 2 days of each other into a single trip
+    // Merge overlapping or directly adjacent events into a single trip
     const trips: { start: string; end: string }[] = [];
     let currentTrip: { start: string; end: string } | null = null;
 
@@ -121,11 +121,12 @@ export async function GET() {
       if (!currentTrip) {
         currentTrip = { start: ev.date, end: ev.endDate };
       } else {
-        const lastEnd = new Date(currentTrip.end);
-        const thisStart = new Date(ev.date);
+        const lastEnd = new Date(currentTrip.end + "T12:00:00");
+        const thisStart = new Date(ev.date + "T12:00:00");
         const gap = (thisStart.getTime() - lastEnd.getTime()) / (1000 * 60 * 60 * 24);
 
-        if (gap <= 2) {
+        if (gap <= 1) {
+          // Overlapping or next day — extend the trip
           if (ev.endDate > currentTrip.end) currentTrip.end = ev.endDate;
         } else {
           trips.push(currentTrip);
