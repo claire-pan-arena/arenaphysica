@@ -198,6 +198,7 @@ export default function CalendarPage() {
   const [dragMemberIdx, setDragMemberIdx] = useState<number | null>(null);
   const [orgPeople, setOrgPeople] = useState<{ email: string; name: string }[]>([]);
   const [addSearch, setAddSearch] = useState("");
+  const [addSelected, setAddSelected] = useState<{ email: string; name: string }[]>([]);
   const [sugLimit, setSugLimit] = useState(5);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sugUserEmail, setSugUserEmail] = useState<string | null>(null);
@@ -356,6 +357,7 @@ export default function CalendarPage() {
   const handleOpenAddPerson = async () => {
     setShowAddPerson(true);
     setAddSearch("");
+    setAddSelected([]);
     try {
       const res = await fetch("/api/team-calendar/org");
       const data = await res.json();
@@ -363,14 +365,25 @@ export default function CalendarPage() {
     } catch {}
   };
 
-  const handleSelectPerson = async (person: { email: string; name: string }) => {
-    await fetch("/api/team-calendar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_member", forName: person.name, forEmail: person.email }),
-    });
+  const toggleAddPerson = (person: { email: string; name: string }) => {
+    setAddSelected((prev) =>
+      prev.some((p) => p.email === person.email)
+        ? prev.filter((p) => p.email !== person.email)
+        : [...prev, person]
+    );
+  };
+
+  const handleAddSelectedPeople = async () => {
+    for (const person of addSelected) {
+      await fetch("/api/team-calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_member", forName: person.name, forEmail: person.email }),
+      });
+    }
     setShowAddPerson(false);
     setAddSearch("");
+    setAddSelected([]);
     fetchData();
   };
 
@@ -997,6 +1010,16 @@ export default function CalendarPage() {
               className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 mb-3"
               autoFocus
             />
+            {addSelected.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {addSelected.map((p) => (
+                  <span key={p.email} className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-white/10 rounded text-white/70">
+                    {p.name.split(" ")[0]}
+                    <button onClick={() => toggleAddPerson(p)} className="text-white/30 hover:text-white/60">x</button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="overflow-y-auto flex-1 -mx-1">
               {orgPeople
                 .filter((p) => {
@@ -1005,20 +1028,36 @@ export default function CalendarPage() {
                   const q = addSearch.toLowerCase();
                   return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
                 })
-                .map((person) => (
-                  <button
-                    key={person.email}
-                    onClick={() => handleSelectPerson(person)}
-                    className="w-full text-left px-3 py-2 rounded hover:bg-white/[0.08] transition-colors"
-                  >
-                    <div className="text-sm text-white/80">{person.name}</div>
-                    <div className="text-[11px] text-white/30">{person.email}</div>
-                  </button>
-                ))}
+                .map((person) => {
+                  const selected = addSelected.some((p) => p.email === person.email);
+                  return (
+                    <button
+                      key={person.email}
+                      onClick={() => toggleAddPerson(person)}
+                      className={`w-full text-left px-3 py-2 rounded hover:bg-white/[0.08] transition-colors flex items-center gap-2 ${selected ? "bg-white/[0.06]" : ""}`}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] shrink-0 ${selected ? "border-[#a3b18a] bg-[#a3b18a]/20 text-[#a3b18a]" : "border-white/20"}`}>
+                        {selected && "\u2713"}
+                      </div>
+                      <div>
+                        <div className="text-sm text-white/80">{person.name}</div>
+                        <div className="text-[11px] text-white/30">{person.email}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               {orgPeople.filter((p) => !members.some((m) => m.email === p.email)).length === 0 && (
                 <p className="text-white/30 text-xs px-3 py-4 text-center">All team members already added.</p>
               )}
             </div>
+            {addSelected.length > 0 && (
+              <button
+                onClick={handleAddSelectedPeople}
+                className="mt-3 w-full py-2 text-[10px] tracking-widest uppercase text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors"
+              >
+                Add {addSelected.length} {addSelected.length === 1 ? "person" : "people"}
+              </button>
+            )}
           </div>
         </div>
       )}
