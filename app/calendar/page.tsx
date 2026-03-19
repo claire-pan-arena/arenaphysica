@@ -101,8 +101,8 @@ export default function CalendarPage() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [showAddPerson, setShowAddPerson] = useState(false);
-  const [newPersonName, setNewPersonName] = useState("");
-  const [newPersonEmail, setNewPersonEmail] = useState("");
+  const [orgPeople, setOrgPeople] = useState<{ email: string; name: string }[]>([]);
+  const [addSearch, setAddSearch] = useState("");
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -175,16 +175,24 @@ export default function CalendarPage() {
     fetchData();
   };
 
-  const handleAddPerson = async () => {
-    if (!newPersonName.trim() || !newPersonEmail.trim()) return;
+  const handleOpenAddPerson = async () => {
+    setShowAddPerson(true);
+    setAddSearch("");
+    try {
+      const res = await fetch("/api/team-calendar/org");
+      const data = await res.json();
+      setOrgPeople(data.people || []);
+    } catch {}
+  };
+
+  const handleSelectPerson = async (person: { email: string; name: string }) => {
     await fetch("/api/team-calendar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_member", forName: newPersonName.trim(), forEmail: newPersonEmail.trim() }),
+      body: JSON.stringify({ action: "add_member", forName: person.name, forEmail: person.email }),
     });
     setShowAddPerson(false);
-    setNewPersonName("");
-    setNewPersonEmail("");
+    setAddSearch("");
     fetchData();
   };
 
@@ -283,7 +291,7 @@ export default function CalendarPage() {
             </h1>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowAddPerson(true)}
+                onClick={handleOpenAddPerson}
                 className="px-4 py-2 text-[10px] tracking-widest uppercase border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors"
               >
                 Add Person
@@ -603,50 +611,40 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Add Person modal */}
+      {/* Add Person dropdown */}
       {showAddPerson && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e2530] border border-white/10 rounded-lg p-6 w-[400px]">
-            <h3 className="text-sm text-white/80 mb-4">Add team member</h3>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Name</label>
-                <input
-                  type="text"
-                  value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
-                  placeholder="e.g. Claire Pan"
-                  className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Email</label>
-                <input
-                  type="email"
-                  value={newPersonEmail}
-                  onChange={(e) => setNewPersonEmail(e.target.value)}
-                  placeholder="e.g. claire@arena-ai.com"
-                  className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => { setShowAddPerson(false); setNewPersonName(""); setNewPersonEmail(""); }}
-                className="px-4 py-2 text-xs text-white/40 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddPerson}
-                disabled={!newPersonName.trim() || !newPersonEmail.trim()}
-                className="px-4 py-2 text-xs text-white border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors disabled:opacity-30"
-              >
-                Add
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddPerson(false)}>
+          <div className="bg-[#1e2530] border border-white/10 rounded-lg p-4 w-[340px] max-h-[500px] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+              placeholder="Search team members..."
+              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 mb-3"
+              autoFocus
+            />
+            <div className="overflow-y-auto flex-1 -mx-1">
+              {orgPeople
+                .filter((p) => {
+                  // Exclude people already on the calendar
+                  if (members.some((m) => m.email === p.email)) return false;
+                  if (!addSearch) return true;
+                  const q = addSearch.toLowerCase();
+                  return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
+                })
+                .map((person) => (
+                  <button
+                    key={person.email}
+                    onClick={() => handleSelectPerson(person)}
+                    className="w-full text-left px-3 py-2 rounded hover:bg-white/[0.08] transition-colors"
+                  >
+                    <div className="text-sm text-white/80">{person.name}</div>
+                    <div className="text-[11px] text-white/30">{person.email}</div>
+                  </button>
+                ))}
+              {orgPeople.filter((p) => !members.some((m) => m.email === p.email)).length === 0 && (
+                <p className="text-white/30 text-xs px-3 py-4 text-center">All team members already added.</p>
+              )}
             </div>
           </div>
         </div>
