@@ -149,24 +149,22 @@ function buildSpans(entries: CalendarEntry[], dayDates: string[]): EntrySpan[] {
 
 const NICKNAMES: Record<string, string> = { michael: "Mike" };
 
+function resolveFirstName(fullName: string): string {
+  const first = fullName.split(" ")[0].toLowerCase();
+  return NICKNAMES[first] || fullName.split(" ")[0];
+}
+
 function getDisplayName(fullName: string, allNames: string[]): string {
   const parts = fullName.split(" ");
-  let firstName = parts[0];
-  const firstLower = firstName.toLowerCase();
+  const displayFirst = resolveFirstName(fullName);
 
-  // Apply nicknames
-  if (NICKNAMES[firstLower]) firstName = NICKNAMES[firstLower];
-
-  // Check if another member shares the same first name
-  const duplicateFirst = allNames.filter((n) => {
-    const other = n.split(" ")[0].toLowerCase();
-    return other === firstLower || NICKNAMES[other] === firstName;
-  }).length > 1;
+  // Check if another member resolves to the same display first name
+  const duplicateFirst = allNames.filter((n) => resolveFirstName(n) === displayFirst).length > 1;
 
   if (duplicateFirst && parts.length > 1) {
-    return `${firstName} ${parts[parts.length - 1][0]}.`;
+    return `${displayFirst} ${parts[parts.length - 1][0]}.`;
   }
-  return firstName;
+  return displayFirst;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
