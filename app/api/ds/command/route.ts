@@ -114,15 +114,16 @@ export async function GET(request: NextRequest) {
 
   if (accessToken && sessionError !== "RefreshTokenError") {
     try {
+      // Cover this week + next week (through next Sunday)
       const dayOfWeek = today.getDay(); // 0=Sun
-      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-      const endOfWeek = new Date(today);
-      endOfWeek.setDate(today.getDate() + daysUntilSunday);
-      endOfWeek.setHours(23, 59, 59, 999);
+      const daysUntilNextSunday = dayOfWeek === 0 ? 7 : 14 - dayOfWeek;
+      const endOfNextWeek = new Date(today);
+      endOfNextWeek.setDate(today.getDate() + daysUntilNextSunday);
+      endOfNextWeek.setHours(23, 59, 59, 999);
 
       const calParams = new URLSearchParams({
         timeMin: today.toISOString(),
-        timeMax: endOfWeek.toISOString(),
+        timeMax: endOfNextWeek.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
         maxResults: "20",
@@ -147,8 +148,13 @@ export async function GET(request: NextRequest) {
 
         for (const event of (calData.items || [])) {
           const attendees = event.attendees || [];
+          // Check for real external human attendees (exclude rooms/resources)
           const hasExternal = attendees.some(
-            (a: any) => a.email && !a.email.toLowerCase().endsWith(arenaEmailDomain)
+            (a: any) =>
+              a.email &&
+              !a.resource &&
+              !a.email.toLowerCase().endsWith(arenaEmailDomain) &&
+              !a.email.toLowerCase().includes("resource.calendar.google.com")
           );
           if (!hasExternal) continue;
 
@@ -160,7 +166,9 @@ export async function GET(request: NextRequest) {
           const depMatches: Record<string, number> = {};
           const externalAttendees: string[] = [];
           for (const att of attendees) {
+            if (att.resource) continue; // skip rooms/resources
             const email = (att.email || "").toLowerCase();
+            if (email.includes("resource.calendar.google.com")) continue;
             if (!email.endsWith(arenaEmailDomain)) {
               externalAttendees.push(att.displayName || email.split("@")[0]);
             }

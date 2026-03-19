@@ -119,7 +119,10 @@ export async function GET(request: NextRequest) {
       const attendees: { email: string; name: string; isExternal: boolean; personId?: string; isChampion?: boolean }[] = [];
       let hasExternal = false;
       for (const att of (event.attendees || [])) {
+        // Skip room/resource attendees
+        if (att.resource) continue;
         const email = (att.email || "").toLowerCase();
+        if (email.includes("resource.calendar.google.com")) continue;
         const displayName = att.displayName || email.split("@")[0];
         const isExternal = !email.endsWith(arenaEmailDomain);
         if (isExternal) hasExternal = true;

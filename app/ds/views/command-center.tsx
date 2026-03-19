@@ -122,11 +122,11 @@ export default function CommandCenter({ filterCompany, filterGroup, onNavigate }
         )}
       </Card>
 
-      {/* ─── This Week's Meetings ─── */}
+      {/* ─── Upcoming Meetings ─── */}
       <Card>
         <SectionHeader
           icon={<CalendarDays className="w-4 h-4" />}
-          title="This Week's Meetings"
+          title="Upcoming Meetings"
           count={data.this_week?.length || 0}
           action={
             <button
@@ -146,6 +146,7 @@ export default function CommandCenter({ filterCompany, filterGroup, onNavigate }
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <CalendarDays className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span className="text-[11px] text-gray-400 shrink-0">{meeting.date}</span>
                   <span className="text-sm text-gray-900 truncate">{meeting.title}</span>
                   <span className="text-[11px] text-gray-400 shrink-0">{meeting.time}</span>
                 </div>
@@ -163,7 +164,7 @@ export default function CommandCenter({ filterCompany, filterGroup, onNavigate }
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400">No external meetings this week.</p>
+          <p className="text-sm text-gray-400">No upcoming external meetings.</p>
         )}
       </Card>
 
