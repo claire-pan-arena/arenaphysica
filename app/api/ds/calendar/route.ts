@@ -162,6 +162,7 @@ export async function GET(request: NextRequest) {
         time: localTime,
         date: localDate,
         isoDate,
+        startTimestamp: startDate.getTime(),
         location: event.location || event.hangoutLink || null,
         attendees,
         attendeeCount: attendees.length,
@@ -173,8 +174,44 @@ export async function GET(request: NextRequest) {
         suggestedDeploymentName: suggestedDeployment
           ? (suggestedDeployment.name || suggestedDeployment.company)
           : null,
+        prepContext: null as any, // populated below for upcoming events
       };
     });
+
+    // Add prep context for upcoming events with a matched deployment
+    for (const evt of events) {
+      if (evt.isPast || !evt.suggestedDeploymentId) continue;
+      try {
+        const lastMeeting = await sql`
+          SELECT date, sentiment, type FROM ds_meetings
+          WHERE deployment_id = ${evt.suggestedDeploymentId}
+          ORDER BY date DESC LIMIT 1
+        `;
+        const meetingIds = await sql`
+          SELECT id FROM ds_meetings
+          WHERE deployment_id = ${evt.suggestedDeploymentId}
+        `;
+        const mIds = meetingIds.map((m: any) => m.id);
+        let openActions: any[] = [];
+        if (mIds.length > 0) {
+          openActions = await sql`
+            SELECT title, owner FROM ds_meeting_action_items
+            WHERE meeting_id = ANY(${mIds}) AND done = false
+            LIMIT 5
+          `;
+        }
+        const dep = depMap[evt.suggestedDeploymentId];
+        evt.prepContext = {
+          lastMeetingDate: lastMeeting[0]?.date || null,
+          lastMeetingSentiment: lastMeeting[0]?.sentiment || null,
+          openActionItems: openActions.map((a: any) => ({ title: a.title, owner: a.owner })),
+          deploymentHealth: dep?.health || null,
+          deploymentStatus: dep?.status || null,
+        };
+      } catch {
+        // Skip prep context on error
+      }
+    }
 
     // Filter to only external meetings (has at least one non-arena attendee)
     const externalEvents = events.filter((e: any) => e.hasExternal);
