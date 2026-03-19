@@ -435,7 +435,7 @@ export default function CalendarPage() {
                 </span>
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-[10px] text-white/40 uppercase tracking-widest">View</span>
-                  {[1, 2, 4].map((w) => (
+                  {[1, 2, 4, 8, 12].map((w) => (
                     <button
                       key={w}
                       onClick={() => setNumWeeks(w)}
