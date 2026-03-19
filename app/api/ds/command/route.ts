@@ -98,31 +98,98 @@ export async function GET(request: NextRequest) {
     }))
     .sort((a: any, b: any) => a.due_date.localeCompare(b.due_date));
 
-  // --- this_week: most recent weekly snapshot items ---
-  const snapshots = await sql`
-    SELECT * FROM ds_weekly_snapshots
-    WHERE user_email = ${userEmail}
-    ORDER BY week_of DESC
-    LIMIT 1
-  `;
-
-  let thisWeek: any[] = [];
-  if (snapshots.length > 0) {
-    const snap = snapshots[0];
-    const snapshotItems = await sql`
-      SELECT si.*, w.name as workstream_name
-      FROM ds_weekly_snapshot_items si
-      LEFT JOIN ds_workstreams w ON si.task_id = w.id
-      WHERE si.snapshot_id = ${snap.id}
+  // --- allPeople: needed for calendar matching and relationship alerts ---
+  let allPeople: any[] = [];
+  if (deploymentIds.length > 0) {
+    allPeople = await sql`
+      SELECT * FROM ds_people
+      WHERE deployment_id = ANY(${deploymentIds})
     `;
+  }
 
-    thisWeek = snapshotItems.map((i: any) => ({
-      workstream_id: i.task_id,
-      workstream_name: i.workstream_name || "Unknown",
-      priority: i.priority,
-      status: i.notes || "in_progress",
-      notes: i.notes,
-    }));
+  // --- this_week: upcoming external calendar events ---
+  let thisWeekMeetings: any[] = [];
+  const accessToken = (session as any).accessToken;
+  const sessionError = (session as any).error;
+
+  if (accessToken && sessionError !== "RefreshTokenError") {
+    try {
+      const dayOfWeek = today.getDay(); // 0=Sun
+      const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + daysUntilSunday);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      const calParams = new URLSearchParams({
+        timeMin: today.toISOString(),
+        timeMax: endOfWeek.toISOString(),
+        singleEvents: "true",
+        orderBy: "startTime",
+        maxResults: "20",
+      });
+
+      const calRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${calParams}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (calRes.ok) {
+        const calData = await calRes.json();
+        const arenaEmailDomain = "@arena-ai.com";
+
+        // Build email→person map for matching
+        const emailMap: Record<string, any> = {};
+        for (const p of allPeople) {
+          if (p.email) emailMap[p.email.toLowerCase()] = p;
+        }
+        const depMap: Record<string, any> = {};
+        for (const d of deployments) depMap[d.id] = d;
+
+        for (const event of (calData.items || [])) {
+          const attendees = event.attendees || [];
+          const hasExternal = attendees.some(
+            (a: any) => a.email && !a.email.toLowerCase().endsWith(arenaEmailDomain)
+          );
+          if (!hasExternal) continue;
+
+          const startDate = event.start?.dateTime
+            ? new Date(event.start.dateTime)
+            : event.start?.date ? new Date(event.start.date) : new Date();
+
+          // Match attendees to deployments
+          const depMatches: Record<string, number> = {};
+          const externalAttendees: string[] = [];
+          for (const att of attendees) {
+            const email = (att.email || "").toLowerCase();
+            if (!email.endsWith(arenaEmailDomain)) {
+              externalAttendees.push(att.displayName || email.split("@")[0]);
+            }
+            const matched = emailMap[email];
+            if (matched?.deployment_id) {
+              depMatches[matched.deployment_id] = (depMatches[matched.deployment_id] || 0) + 1;
+            }
+          }
+          const suggestedDepId = Object.entries(depMatches)
+            .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+          const suggestedDep = suggestedDepId ? depMap[suggestedDepId] : null;
+
+          thisWeekMeetings.push({
+            id: event.id,
+            title: event.summary || "Untitled",
+            time: event.start?.dateTime
+              ? startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+              : "All day",
+            date: startDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+            isoDate: startDate.toISOString().split("T")[0],
+            externalAttendees,
+            suggestedDeploymentName: suggestedDep ? (suggestedDep.name || suggestedDep.company) : null,
+          });
+        }
+      }
+    } catch (e: any) {
+      // Calendar fetch failed silently — don't break command center
+      console.error("[command] Calendar fetch error:", e?.message);
+    }
   }
 
   // --- deployment_health ---
@@ -180,14 +247,6 @@ export async function GET(request: NextRequest) {
     }));
 
   // --- relationship_alerts: people with last_contact > 7 days ago ---
-  let allPeople: any[] = [];
-  if (deploymentIds.length > 0) {
-    allPeople = await sql`
-      SELECT * FROM ds_people
-      WHERE deployment_id = ANY(${deploymentIds})
-    `;
-  }
-
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const sevenDaysStr = sevenDaysAgo.toISOString().split("T")[0];
@@ -246,7 +305,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     needs_attention: { overdue, due_soon: dueSoon },
-    this_week: thisWeek,
+    this_week: thisWeekMeetings,
     deployment_health,
     upcoming_deadlines,
     relationship_alerts,

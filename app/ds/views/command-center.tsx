@@ -22,6 +22,7 @@ import {
   Badge,
   EmptyState,
   type CommandData,
+  type CalendarMeetingItem,
 } from "../components/shared";
 
 interface Props {
@@ -121,27 +122,48 @@ export default function CommandCenter({ filterCompany, filterGroup, onNavigate }
         )}
       </Card>
 
-      {/* ─── This Week ─── */}
+      {/* ─── This Week's Meetings ─── */}
       <Card>
         <SectionHeader
           icon={<CalendarDays className="w-4 h-4" />}
-          title="This Week"
+          title="This Week's Meetings"
           count={data.this_week?.length || 0}
+          action={
+            <button
+              onClick={() => onNavigate("meetings")}
+              className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium"
+            >
+              View All
+            </button>
+          }
         />
         {data.this_week?.length ? (
           <div className="flex flex-col gap-2">
-            {data.this_week.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <PriorityBadge priority={item.priority} />
-                  <span className="text-gray-800 truncate">{item.workstream_name}</span>
+            {data.this_week.map((meeting: CalendarMeetingItem) => (
+              <div
+                key={meeting.id}
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <CalendarDays className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span className="text-sm text-gray-900 truncate">{meeting.title}</span>
+                  <span className="text-[11px] text-gray-400 shrink-0">{meeting.time}</span>
                 </div>
-                <StatusBadge status={item.status} />
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  {meeting.suggestedDeploymentName && (
+                    <Badge color="#6366f1" bg="#eef2ff">
+                      {meeting.suggestedDeploymentName}
+                    </Badge>
+                  )}
+                  <Badge color="#6b7280" bg="#f3f4f6">
+                    {meeting.externalAttendees.length} external
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400">No weekly snapshot yet.</p>
+          <p className="text-sm text-gray-400">No external meetings this week.</p>
         )}
       </Card>
 

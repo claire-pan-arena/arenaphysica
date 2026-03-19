@@ -433,9 +433,19 @@ export interface SnapshotItem {
   notes?: string;
 }
 
+export interface CalendarMeetingItem {
+  id: string;
+  title: string;
+  time: string;
+  date: string;
+  isoDate: string;
+  externalAttendees: string[];
+  suggestedDeploymentName: string | null;
+}
+
 export interface CommandData {
   needs_attention: { overdue: any[]; due_soon: any[] };
-  this_week: SnapshotItem[];
+  this_week: CalendarMeetingItem[];
   deployment_health: {
     id: string;
     name?: string;
