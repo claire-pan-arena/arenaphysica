@@ -114,6 +114,32 @@ export async function initDb() {
     )
   `;
 
+  // Team members — stores refresh tokens for team calendar sync
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_members (
+      email TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      refresh_token TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  // Team calendar entries — manual + Google Calendar synced
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_calendar_entries (
+      id TEXT PRIMARY KEY,
+      user_email TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      date TEXT NOT NULL,
+      location TEXT NOT NULL,
+      entry_type TEXT NOT NULL DEFAULT 'travel',
+      note TEXT DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'manual',
+      google_event_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // ── DS Dashboard tables ──────────────────────────────────────────────
 
   await sql`

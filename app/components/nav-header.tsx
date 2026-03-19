@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/kb", label: "Knowledge Base" },
   { href: "/tools", label: "Tools Library" },
+  { href: "/calendar", label: "Calendar" },
   { href: "/crm", label: "CRM" },
   { href: "/ds", label: "DS Dashboard" },
 ];

@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { getDb } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -30,6 +31,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at ? account.expires_at * 1000 : Date.now() + 3600 * 1000;
+
+        // Persist refresh token to DB for team calendar
+        if (account.refresh_token && token.email) {
+          try {
+            const sql = getDb();
+            await sql`
+              INSERT INTO team_members (email, name, refresh_token, updated_at)
+              VALUES (${token.email as string}, ${(token.name as string) || ''}, ${account.refresh_token}, NOW())
+              ON CONFLICT (email) DO UPDATE SET
+                name = EXCLUDED.name,
+                refresh_token = EXCLUDED.refresh_token,
+                updated_at = NOW()
+            `;
+          } catch (err) {
+            console.error("[auth] Failed to persist refresh token:", err);
+          }
+        }
         return token;
       }
 
@@ -74,6 +92,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Google may rotate the refresh token
         if (data.refresh_token) {
           token.refreshToken = data.refresh_token;
+          // Update DB with rotated token
+          if (token.email) {
+            try {
+              const sql = getDb();
+              await sql`UPDATE team_members SET refresh_token = ${data.refresh_token}, updated_at = NOW() WHERE email = ${token.email as string}`;
+            } catch {}
+          }
         }
         // Clear any previous error
         delete token.error;
