@@ -112,19 +112,42 @@ export async function syncNotionOOO(
     }
   }
 
+  // Clear all existing Notion OOO entries to prevent stale/mismatched data
+  await sql`DELETE FROM team_calendar_entries WHERE source = 'notion_ooo'`;
+
   let synced = 0;
   let skipped = 0;
   const skippedNames: string[] = [];
 
+  // Also build a last-name lookup for ambiguous first names
+  const lastNameToEmail: Record<string, string> = {};
+  const lastNameToFullName: Record<string, string> = {};
+  for (const m of members) {
+    const parts = m.name.toLowerCase().split(" ");
+    if (parts.length > 1) {
+      const lastName = parts[parts.length - 1];
+      lastNameToEmail[lastName] = m.email;
+      lastNameToFullName[lastName] = m.name;
+    }
+  }
+
   for (const entry of oooEntries) {
     const nameLower = entry.name.toLowerCase().trim();
-    const email = nameToEmail[nameLower] || nameToEmail[nameLower.split(" ")[0]];
+    let email = nameToEmail[nameLower] || nameToEmail[nameLower.split(" ")[0]];
+    // If first-name match failed (ambiguous), try last name from the Notion entry
+    if (!email) {
+      const notionParts = nameLower.split(" ");
+      if (notionParts.length > 1) {
+        const notionLast = notionParts[notionParts.length - 1];
+        email = lastNameToEmail[notionLast];
+      }
+    }
     if (!email) {
       skipped++;
       if (!skippedNames.includes(entry.name)) skippedNames.push(entry.name);
       continue;
     }
-    const fullName = nameToFullName[nameLower] || nameToFullName[nameLower.split(" ")[0]] || entry.name;
+    const fullName = nameToFullName[nameLower] || nameToFullName[nameLower.split(" ")[0]] || lastNameToFullName[nameLower.split(" ").pop() || ""] || entry.name;
 
     const d = new Date(entry.startDate + "T12:00:00");
     const end = new Date(entry.endDate + "T12:00:00");
