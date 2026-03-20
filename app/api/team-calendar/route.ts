@@ -167,10 +167,36 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const accessToken = (session as any).accessToken;
   const { id } = await request.json();
   const sql = getDb();
-  // Any team member can delete any entry (team calendar is collaborative)
+
+  // Look up entry to check for linked Google Calendar event
+  const rows = await sql`SELECT google_event_id FROM team_calendar_entries WHERE id = ${id}`;
+  const googleEventId = rows[0]?.google_event_id;
+
+  // Delete from DB
   await sql`DELETE FROM team_calendar_entries WHERE id = ${id}`;
+
+  // Also delete from Google Calendar if linked
+  if (googleEventId && accessToken) {
+    const calId = process.env.TEAM_CALENDAR_ID;
+    if (calId) {
+      // Check if any other entries still reference this event
+      const remaining = await sql`SELECT id FROM team_calendar_entries WHERE google_event_id = ${googleEventId} LIMIT 1`;
+      if (remaining.length === 0) {
+        try {
+          await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(googleEventId)}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+        } catch {}
+      }
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
