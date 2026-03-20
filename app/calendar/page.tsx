@@ -646,6 +646,24 @@ export default function CalendarPage() {
                 <button onClick={nextWeek} className="px-2 py-1 text-xs text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
                   &rarr;
                 </button>
+                <div className="flex items-center gap-4 ml-auto text-[9px] text-white/35 uppercase tracking-widest">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-purple-500/15 border border-purple-500/25" />
+                    Sales
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-blue-500/15 border border-blue-500/25" />
+                    Deployment
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-red-500/10 border border-red-500/20" />
+                    OOO
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded border border-dashed border-white/20" />
+                    Detected
+                  </div>
+                </div>
               </div>
 
               {/* Calendar grid */}
@@ -687,29 +705,6 @@ export default function CalendarPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {/* Legend row */}
-                      <tr className="border-b border-white/[0.06]">
-                        <td colSpan={days.length + 1} className="px-2 py-1.5">
-                          <div className="flex items-center gap-5 text-[9px] text-white/35 uppercase tracking-widest">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded bg-purple-500/15 border border-purple-500/25" />
-                              Sales
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded bg-blue-500/15 border border-blue-500/25" />
-                              Deployment
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded bg-red-500/10 border border-red-500/20" />
-                              OOO
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded border border-dashed border-white/20" />
-                              Detected
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
                       {members.length === 0 ? (
                         <tr>
                           <td colSpan={days.length + 1} className="text-center text-white/30 text-sm py-12">
