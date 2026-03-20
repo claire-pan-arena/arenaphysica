@@ -183,9 +183,13 @@ function getCellStyle(entryType: string, source: string) {
     if (isDetected) return "bg-blue-500/10 border border-dashed border-blue-500/20 text-blue-400/50";
     return "bg-blue-500/15 border border-blue-500/25 text-blue-400/80";
   }
-  // Sales (and any legacy travel entries)
-  if (isDetected) return "bg-purple-500/10 border border-dashed border-purple-500/20 text-purple-400/50";
-  return "bg-purple-500/15 border border-purple-500/25 text-purple-400/80";
+  if (entryType === "sales") {
+    if (isDetected) return "bg-purple-500/10 border border-dashed border-purple-500/20 text-purple-400/50";
+    return "bg-purple-500/15 border border-purple-500/25 text-purple-400/80";
+  }
+  // Travel / detected entries (from Google Calendar sync)
+  if (isDetected) return "bg-amber-500/15 border border-dashed border-amber-500/25 text-amber-400/80";
+  return "bg-[#a3b18a]/20 border border-[#a3b18a]/30 text-[#a3b18a]";
 }
 
 interface ModalState {
@@ -544,7 +548,7 @@ export default function CalendarPage() {
             id: `${sug.id}-${dateStr}`,
             date: dateStr,
             location: sug.location,
-            entryType: "sales",
+            entryType: "travel",
             note: "",
             source: "suggestion",
             customer: "",
