@@ -30,6 +30,10 @@ export async function GET(request: NextRequest) {
     ORDER BY date
   `;
 
+  // Admin check — only admins can see OOO notes
+  const adminEmails = (process.env.TEAM_CALENDAR_ADMINS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const isAdmin = adminEmails.includes(session.user.email.toLowerCase());
+
   // Group entries by user
   const memberMap: Record<string, { email: string; name: string; entries: any[] }> = {};
   for (const m of members) {
@@ -39,12 +43,14 @@ export async function GET(request: NextRequest) {
     if (!memberMap[e.user_email]) {
       memberMap[e.user_email] = { email: e.user_email, name: e.user_name, entries: [] };
     }
+    // Strip OOO notes for non-admins (unless it's their own entry)
+    const note = (e.entry_type === "ooo" && !isAdmin && e.user_email !== session.user.email) ? "" : (e.note || "");
     memberMap[e.user_email].entries.push({
       id: e.id,
       date: e.date,
       location: e.location,
       entryType: e.entry_type,
-      note: e.note,
+      note,
       source: e.source,
       customer: e.customer || "",
     });
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
 
   const customers = await sql`SELECT name FROM team_calendar_customers ORDER BY name`;
 
-  return NextResponse.json({ members: Object.values(memberMap), customers: customers.map((c: any) => c.name) });
+  return NextResponse.json({ members: Object.values(memberMap), customers: customers.map((c: any) => c.name), isAdmin });
 }
 
 export async function POST(request: NextRequest) {
